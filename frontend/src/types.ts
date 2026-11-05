@@ -17,6 +17,9 @@ export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'anytime'
 /** How the habit list inside a period is ordered. */
 export type HabitSort = 'incomplete' | 'manual' | 'deadline' | 'name'
 
+/** How the to-do list is ordered inside the chosen view. */
+export type TodoSort = 'due' | 'importance' | 'name' | 'created'
+
 export interface Habit {
   id: number
   name: string
@@ -70,6 +73,19 @@ export type TodoCategory = 'chores' | 'schoolwork' | 'work' | 'personal' | 'heal
 /** How much a task matters — shapes ordering and the small badge on the card. */
 export type TodoImportance = 'low' | 'medium' | 'high'
 
+/**
+ * How a task repeats. Completing a repeating task rolls it forward to its next
+ * occurrence instead of leaving it done, so a recurring chore never piles up.
+ */
+export type TodoRecurrence = 'none' | 'daily' | 'weekly' | 'monthly'
+
+/** One step inside a task's checklist. */
+export interface Subtask {
+  id: string
+  title: string
+  done: boolean
+}
+
 export interface Todo {
   id: number
   title: string
@@ -82,6 +98,10 @@ export interface Todo {
   dueTime: string | null
   /** How much this task matters. Defaults to 'medium'. */
   importance: TodoImportance
+  /** How this task repeats. Defaults to 'none'. */
+  recurrence: TodoRecurrence
+  /** An optional checklist. Completing every step doesn't complete the task. */
+  subtasks: Subtask[]
   /** Archived tasks keep their details but leave the board. */
   archived: boolean
   createdAt: string
@@ -95,6 +115,8 @@ export interface TodoInput {
   dueDate: string | null
   dueTime: string | null
   importance: TodoImportance
+  recurrence: TodoRecurrence
+  subtasks: Subtask[]
 }
 
 export type TimeFormat = '12' | '24'
@@ -129,6 +151,8 @@ export interface Settings {
   timeFormat: TimeFormat
   /** How habits are ordered inside the chosen time of day. */
   habitSort: HabitSort
+  /** How tasks are ordered inside the chosen to-do view. */
+  todoSort: TodoSort
   /** Hide completed habits from the day's list. */
   hideCompleted: boolean
   /** Follow the clock: switch the visible period as the day advances. */

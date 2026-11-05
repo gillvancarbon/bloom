@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Portal } from './Portal'
 import { Segmented } from './Segmented'
@@ -7,6 +7,8 @@ import { useSettings } from '../context/SettingsContext'
 import { useTheme } from '../context/ThemeContext'
 import { backupStore, type Backup } from '../data/backupStore'
 import { dataClient } from '../data/dataClient'
+import { downloadFile, parseBundle, toJson, type ParsedBundle } from '../lib/export'
+import { notifyDataChanged } from '../lib/dataEvents'
 import {
   checkNotificationPermission,
   notificationsNative,
@@ -32,6 +34,8 @@ import {
   Play,
   Sparkles,
   Database,
+  Download,
+  Upload,
   Volume2,
   Clock,
 } from 'lucide-react'
@@ -212,6 +216,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const [picker, setPicker] = useState<'reminder' | 'completion' | null>(null)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [pendingImport, setPendingImport] = useState<ParsedBundle | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
   const soundsAvailable = soundSupported()
 
   /** Close Settings and let the first-run welcome tour play again. */
@@ -247,6 +255,42 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     } else {
       update({ notificationsEnabled: false })
     }
+  }
+
+  /** Download everything the user owns as a JSON snapshot. */
+  async function exportData() {
+    setExporting(true)
+    try {
+      const { habits, todos } = await dataClient.readAll()
+      const stamp = new Date().toISOString().slice(0, 10)
+      downloadFile(`bloom-${stamp}.json`, 'application/json', toJson(habits, todos))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /** Read a chosen file, then ask before replacing anything. */
+  async function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setImportError(null)
+    try {
+      const bundle = parseBundle(await file.text())
+      setPendingImport(bundle)
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Could not read that file.')
+    }
+  }
+
+  /** Replace the dataset from the imported file (after a safety backup). */
+  async function confirmImport() {
+    if (!pendingImport) return
+    await backupStore.create('before import')
+    await dataClient.importAll(pendingImport)
+    setBackups(await backupStore.list())
+    setPendingImport(null)
+    notifyDataChanged()
   }
 
   async function backUpNow() {
@@ -558,6 +602,42 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 ))}
               </div>
             )}
+            <Row label="Export your data" hint="Download a full JSON snapshot you can keep.">
+              <button
+                type="button"
+                onClick={exportData}
+                disabled={exporting}
+                className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Export
+              </button>
+            </Row>
+            <Row
+              label="Import from JSON"
+              hint="Restore habits and tasks from a Bloom export. Replaces what’s here."
+            >
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
+              >
+                <Upload className="h-4 w-4" aria-hidden />
+                Import
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+            </Row>
+            {importError && (
+              <p className="rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+                {importError}
+              </p>
+            )}
             <div className="border-t border-line pt-3">
               <button
                 type="button"
@@ -663,6 +743,19 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           confirmLabel="Restore"
           onCancel={() => setConfirm(null)}
           onConfirm={() => doRestore(confirm)}
+        />
+      )}
+      {pendingImport && (
+        <DeleteConfirm
+          name={`${pendingImport.habits.length} habit${
+            pendingImport.habits.length === 1 ? '' : 's'
+          } and ${pendingImport.todos.length} task${pendingImport.todos.length === 1 ? '' : 's'}`}
+          title="Import this file?"
+          description="will replace the habits and tasks on this device. A backup is saved first, so you can restore from this screen."
+          cancelLabel="Cancel"
+          confirmLabel="Import"
+          onCancel={() => setPendingImport(null)}
+          onConfirm={confirmImport}
         />
       )}
     </Portal>

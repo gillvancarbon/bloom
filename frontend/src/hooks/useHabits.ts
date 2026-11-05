@@ -46,7 +46,7 @@ export function useHabits() {
   // Keep device reminders and the home-screen widget in step with the habits.
   useEffect(() => {
     syncHabitReminders(habits, settings).catch(() => undefined)
-    syncWidget(habits, new Date(), settings.weekStart).catch(() => undefined)
+    syncWidget({ habits }, new Date(), settings.weekStart).catch(() => undefined)
   }, [habits, settings])
 
   // Reminders are armed only a week ahead. Re-arm whenever the app comes back

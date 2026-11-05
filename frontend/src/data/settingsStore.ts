@@ -1,5 +1,5 @@
 import { Preferences } from '@capacitor/preferences'
-import type { CompletionSound, HabitSort, Settings, SoundChoice } from '../types'
+import type { CompletionSound, HabitSort, Settings, SoundChoice, TodoSort } from '../types'
 import { SETTINGS_SCHEMA_VERSION } from '../data/migrations'
 import { minutesOfDay, nearestReminderPreset, snapReminderOffset } from '../lib/reminder'
 import { WEEKLY_FREEZES } from '../lib/freezes'
@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weekStart: 1,
   timeFormat: '12',
   habitSort: 'incomplete',
+  todoSort: 'due',
   hideCompleted: false,
   followClock: false,
   freezeTokens: WEEKLY_FREEZES,
@@ -44,6 +45,12 @@ const HABIT_SORTS: HabitSort[] = ['incomplete', 'manual', 'deadline', 'name']
 
 function sortFrom(value: unknown): HabitSort {
   return HABIT_SORTS.includes(value as HabitSort) ? (value as HabitSort) : 'incomplete'
+}
+
+const TODO_SORTS: TodoSort[] = ['due', 'importance', 'name', 'created']
+
+function todoSortFrom(value: unknown): TodoSort {
+  return TODO_SORTS.includes(value as TodoSort) ? (value as TodoSort) : 'due'
 }
 
 /**
@@ -76,6 +83,7 @@ export function normalizeSettings(raw: RawSettings | null): Settings {
     weekStart: merged.weekStart === 0 ? 0 : 1,
     timeFormat: merged.timeFormat === '24' ? '24' : '12',
     habitSort: sortFrom(merged.habitSort),
+    todoSort: todoSortFrom(merged.todoSort),
     hideCompleted: Boolean(merged.hideCompleted),
     followClock: Boolean(merged.followClock),
     freezeTokens: Number.isFinite(merged.freezeTokens)

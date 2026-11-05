@@ -10,7 +10,14 @@ import {
   ShoppingBag,
   User,
 } from 'lucide-react'
-import type { Todo, TodoCategory, TodoImportance } from '../types'
+import type {
+  Subtask,
+  Todo,
+  TodoCategory,
+  TodoImportance,
+  TodoRecurrence,
+  TodoSort,
+} from '../types'
 import { daysSince, toISODate } from './streak'
 
 export interface TodoCategoryMeta {
@@ -107,14 +114,117 @@ export function importanceMeta(id: string | null | undefined): TodoImportanceMet
   return TODO_IMPORTANCE.find((level) => level.id === id) ?? DEFAULT_IMPORTANCE
 }
 
+/** How a task repeats, in the order shown in the form and card. */
+export interface TodoRecurrenceMeta {
+  id: TodoRecurrence
+  label: string
+}
+
+export const TODO_RECURRENCE: TodoRecurrenceMeta[] = [
+  { id: 'none', label: 'Once' },
+  { id: 'daily', label: 'Daily' },
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'monthly', label: 'Monthly' },
+]
+
+const DEFAULT_RECURRENCE: TodoRecurrence = 'none'
+
+export function recurrenceLabel(id: string | null | undefined): string | null {
+  const meta = TODO_RECURRENCE.find((option) => option.id === id)
+  return meta && meta.id !== 'none' ? meta.label : null
+}
+
 /** Fills in missing fields on tasks saved by earlier versions. */
 export function normalizeTodo(todo: Todo): Todo {
   return {
     ...todo,
     category: todo.category || DEFAULT_CATEGORY.id,
     importance: (todo.importance as TodoImportance) || DEFAULT_IMPORTANCE.id,
+    recurrence: (todo.recurrence as TodoRecurrence) || DEFAULT_RECURRENCE,
+    subtasks: normalizeSubtasks(todo.subtasks),
     archived: todo.archived ?? false,
   }
+}
+
+/** Coerce stored checklist data into a safe, complete list. */
+export function normalizeSubtasks(subtasks: Subtask[] | null | undefined): Subtask[] {
+  if (!Array.isArray(subtasks)) return []
+  return subtasks
+    .filter((subtask) => subtask && typeof subtask.title === 'string')
+    .map((subtask, index) => ({
+      id: subtask.id || `sub-${index}`,
+      title: subtask.title.trim(),
+      done: Boolean(subtask.done),
+    }))
+    .filter((subtask) => subtask.title.length > 0)
+}
+
+export interface SubtaskProgress {
+  done: number
+  total: number
+}
+
+export function subtaskProgress(todo: Todo): SubtaskProgress {
+  const total = todo.subtasks.length
+  const done = todo.subtasks.filter((subtask) => subtask.done).length
+  return { done, total }
+}
+
+/** True when a task matches a free-text search over its title, note and steps. */
+export function matchesTodo(todo: Todo, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  if (todo.title.toLowerCase().includes(q)) return true
+  if (todo.note?.toLowerCase().includes(q)) return true
+  return todo.subtasks.some((subtask) => subtask.title.toLowerCase().includes(q))
+}
+
+/** Add a whole number of months, clamping the day (31 Jan + 1 month = 28 Feb). */
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date.getFullYear(), date.getMonth() + months, 1)
+  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+  next.setDate(Math.min(date.getDate(), lastDay))
+  return next
+}
+
+/**
+ * The next occurrence of a repeating task, as "YYYY-MM-DD".
+ *
+ * Stepping starts from the task's current due date (or `from` when it has none)
+ * and rolls forward until it lands in the future, so an overdue daily task
+ * completed today lands on tomorrow rather than staying in the past.
+ */
+export function nextOccurrence(
+  dueDate: string | null,
+  recurrence: TodoRecurrence,
+  from: Date = new Date(),
+): string | null {
+  if (recurrence === 'none') return null
+
+  const base = dueDate
+    ? parseISODate(dueDate)
+    : new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  let next = base
+
+  // Guard against a runaway loop on malformed data.
+  for (let step = 0; step < 1000; step += 1) {
+    next =
+      recurrence === 'daily'
+        ? new Date(next.getFullYear(), next.getMonth(), next.getDate() + 1)
+        : recurrence === 'weekly'
+          ? new Date(next.getFullYear(), next.getMonth(), next.getDate() + 7)
+          : addMonths(next, 1)
+    if (next.getTime() > today.getTime()) break
+  }
+
+  return toISODate(next)
+}
+
+function parseISODate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number)
+  if (![year, month, day].every(Number.isFinite)) return new Date()
+  return new Date(year, month - 1, day)
 }
 
 export type DueLevel = 'none' | 'overdue' | 'today' | 'tomorrow' | 'later'
@@ -189,8 +299,28 @@ export function isDoneToday(todo: Todo, now: Date): boolean {
   return toISODate(new Date(todo.completedAt)) === toISODate(now)
 }
 
-/** Open tasks by due date (undated last); completed tasks at the bottom. */
-export function sortTodos(todos: Todo[]): Todo[] {
+/** Compare two open tasks by due date/time (undated last). */
+function byDue(a: Todo, b: Todo): number {
+  if (a.dueDate !== b.dueDate) {
+    if (!a.dueDate) return 1
+    if (!b.dueDate) return -1
+    return a.dueDate.localeCompare(b.dueDate)
+  }
+  const aTime = a.dueTime ?? '23:59'
+  const bTime = b.dueTime ?? '23:59'
+  return aTime.localeCompare(bTime)
+}
+
+/**
+ * Order tasks for display. Archived tasks always sink to the bottom, then
+ * completed tasks (most recently finished first). Open tasks follow the chosen
+ * `sort`:
+ *   due        — soonest due first, undated last, priority as a tie-break
+ *   importance — highest priority first, then by due date
+ *   name       — A–Z
+ *   created    — newest first
+ */
+export function sortTodos(todos: Todo[], sort: TodoSort = 'due'): Todo[] {
   return [...todos].sort((a, b) => {
     // Archived tasks sink below everything else.
     if (a.archived !== b.archived) return a.archived ? 1 : -1
@@ -203,21 +333,48 @@ export function sortTodos(todos: Todo[]): Todo[] {
       return bFinished.localeCompare(aFinished)
     }
 
-    if (a.dueDate !== b.dueDate) {
-      if (!a.dueDate) return 1
-      if (!b.dueDate) return -1
-      return a.dueDate.localeCompare(b.dueDate)
+    switch (sort) {
+      case 'importance': {
+        const rank = importanceMeta(b.importance).rank - importanceMeta(a.importance).rank
+        if (rank !== 0) return rank
+        return byDue(a, b)
+      }
+      case 'name':
+        return a.title.localeCompare(b.title)
+      case 'created':
+        return b.createdAt.localeCompare(a.createdAt)
+      case 'due':
+      default: {
+        const due = byDue(a, b)
+        if (due !== 0) return due
+        // Within the same due slot, the more important task floats up.
+        const rank = importanceMeta(b.importance).rank - importanceMeta(a.importance).rank
+        if (rank !== 0) return rank
+        return b.createdAt.localeCompare(a.createdAt)
+      }
     }
-    const aTime = a.dueTime ?? '23:59'
-    const bTime = b.dueTime ?? '23:59'
-    if (aTime !== bTime) return aTime.localeCompare(bTime)
-
-    // Within the same due slot, the more important task floats up.
-    const rank = importanceMeta(b.importance).rank - importanceMeta(a.importance).rank
-    if (rank !== 0) return rank
-
-    return b.createdAt.localeCompare(a.createdAt)
   })
+}
+
+/**
+ * Where an open task belongs in the to-do view. Overdue tasks stay in "Today"
+ * so they can't slip out of sight.
+ */
+export type TodoBucket = 'today' | 'upcoming' | 'anytime'
+
+/** The buckets in their natural order. */
+export const TODO_BUCKETS: TodoBucket[] = ['today', 'upcoming', 'anytime']
+
+export const TODO_BUCKET_LABELS: Record<TodoBucket, string> = {
+  today: 'Today',
+  upcoming: 'Upcoming',
+  anytime: 'Anytime',
+}
+
+export function todoBucket(todo: Todo, now: Date): TodoBucket {
+  const due = dueState(todo.dueDate, todo.dueTime, now)
+  if (due.level === 'none') return 'anytime'
+  return due.level === 'overdue' || due.level === 'today' ? 'today' : 'upcoming'
 }
 
 export interface TodoStats {

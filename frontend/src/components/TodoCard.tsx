@@ -1,7 +1,14 @@
 import { motion } from 'framer-motion'
-import { CalendarDays, Check } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, ListChecks, MoveRight, Repeat } from 'lucide-react'
 import type { Todo } from '../types'
-import { categoryMeta, dueState, importanceMeta } from '../lib/todo'
+import {
+  categoryMeta,
+  dueState,
+  importanceMeta,
+  recurrenceLabel,
+  subtaskProgress,
+} from '../lib/todo'
+import { toISODate } from '../lib/streak'
 import { RowActions } from './RowActions'
 
 interface TodoCardProps {
@@ -14,6 +21,13 @@ interface TodoCardProps {
   onArchive?: (todo: Todo) => void
   onDelete: (todo: Todo) => void
   onToggle: (todo: Todo) => void
+  /** Move an overdue task to today in one tap. */
+  onReschedule?: (todo: Todo, dueDate: string) => void
+  /** Tick or untick a checklist step. */
+  onToggleSubtask?: (todo: Todo, subtaskId: string) => void
+  /** Whether the checklist is open. */
+  expanded?: boolean
+  onToggleExpand?: () => void
 }
 
 export function TodoCard({
@@ -26,12 +40,20 @@ export function TodoCard({
   onArchive,
   onDelete,
   onToggle,
+  onReschedule,
+  onToggleSubtask,
+  expanded = false,
+  onToggleExpand,
 }: TodoCardProps) {
   const category = categoryMeta(todo.category)
   const CategoryIcon = category.icon
   const importance = importanceMeta(todo.importance)
   const ImportanceIcon = importance.icon
   const due = dueState(todo.dueDate, todo.dueTime, now)
+  const repeat = recurrenceLabel(todo.recurrence)
+  const steps = subtaskProgress(todo)
+  const canExpand = steps.total > 0
+  const reschedulable = due.level === 'overdue' && !todo.done && !todo.archived && onReschedule
 
   const dueClass =
     due.level === 'overdue'
@@ -108,7 +130,76 @@ export function TodoCard({
                 {due.text}
               </span>
             )}
+
+            {repeat && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+                <Repeat className="h-3 w-3" aria-hidden />
+                {repeat}
+              </span>
+            )}
+
+            {canExpand && (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                aria-expanded={expanded}
+                className="inline-flex items-center gap-1 rounded-md bg-mint-100 px-2 py-0.5 font-medium
+                           text-sage-700 transition-colors duration-calm ease-calm
+                           hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70"
+              >
+                <ListChecks className="h-3 w-3" aria-hidden />
+                {steps.done}/{steps.total} steps
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform duration-calm ease-calm ${
+                    expanded ? 'rotate-180' : ''
+                  }`}
+                  aria-hidden
+                />
+              </button>
+            )}
           </div>
+
+          {reschedulable && (
+            <button
+              type="button"
+              onClick={() => onReschedule(todo, toISODate(now))}
+              className="mt-2 inline-flex items-center gap-1 rounded-full bg-peach-100 px-2.5 py-1 text-xs font-semibold
+                         text-peach-700 transition-colors duration-calm ease-calm
+                         hover:bg-peach-200 dark:bg-peach-900/40 dark:text-peach-200 dark:hover:bg-peach-900/70"
+            >
+              <MoveRight className="h-3.5 w-3.5" aria-hidden />
+              Move to today
+            </button>
+          )}
+
+          {canExpand && expanded && (
+            <ul className="mt-2 space-y-1">
+              {todo.subtasks.map((subtask) => (
+                <li key={subtask.id}>
+                  <button
+                    type="button"
+                    onClick={() => onToggleSubtask?.(todo, subtask.id)}
+                    disabled={busy}
+                    className="flex w-full items-center gap-2 rounded-calm-sm px-1 py-1 text-left text-xs
+                               text-muted transition-colors duration-calm ease-calm hover:text-ink"
+                  >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                        subtask.done
+                          ? 'border-sage-500 bg-sage-500 text-white'
+                          : 'border-line bg-surface'
+                      }`}
+                    >
+                      {subtask.done && <Check className="h-2.5 w-2.5" aria-hidden />}
+                    </span>
+                    <span className={subtask.done ? 'line-through decoration-mint-400/80' : ''}>
+                      {subtask.title}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {todo.archived && (
             <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted">

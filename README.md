@@ -19,9 +19,19 @@ free for personal, noncommercial use.
 - **Useful daily stats** — Habits shows *Done today*, *Remaining*, and
   *Overdue*; To-do shows *Done today*, *Due today*, and *Overdue*.
 - **To-do list** — every task has a type (Chores, Schoolwork, Work, Personal,
-  Health, Errands), an optional note, and an optional due date and time.
+  Health, Errands), a priority, an optional note, due date/time, a repeat, and an
+  optional checklist.
   - The optional **due time** marks the task overdue at that exact time; without
     one it stays calm until the end of the day.
+  - **Views** group tasks into **Today**, **Upcoming**, **Anytime** and **All**,
+    with the same calm chips as the habit periods; sort by due date, priority,
+    A–Z or newest.
+  - **Quick add** understands plain sentences — “call mum tomorrow 6pm” sets the
+    date and time, `!high` the priority, `#work` the type and `every monday` a
+    repeat — and previews what it read before you add it.
+  - **Search** by title, note or step. **Repeating** tasks roll forward when
+    completed. **Checklists** track steps as `2/3 steps`. Overdue tasks offer a
+    one-tap **Move to today**.
   - Completed tasks move into a **Done today** section and can be undone.
 - **Streak counter** on every habit, with a one-tap daily completion circle
   that you can tap again to **undo** an accidental completion.
@@ -230,6 +240,8 @@ habit-tracker/
         │ ├── calendar.ts # consistency calendar logic
         │ ├── notifications.ts # habit reminders
         │ ├── widget.ts # home-screen widget bridge
+        │ ├── quickAdd.ts # natural-language task capture
+        │ ├── export.ts # JSON export/import
         │ └── templates.ts
         └── components/
             ├── HabitsView.tsx

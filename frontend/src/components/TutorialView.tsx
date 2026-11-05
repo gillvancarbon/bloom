@@ -107,9 +107,19 @@ const GROUPS: GuideGroup[] = [
         body: 'Give it a category and a priority, add an optional note, and set a due date and time if it matters. Tasks are ordered by due slot, with higher priority floating up.',
       },
       {
+        Icon: Sparkles,
+        title: 'Quick add',
+        body: 'Type a sentence like “call mum tomorrow 6pm” in the quick-add line. Bloom reads the date, time, priority (!high), type (#work) and repeat (every monday), and previews it before you add the task.',
+      },
+      {
         Icon: Check,
+        title: 'Views, steps and repeats',
+        body: 'Switch between Today, Upcoming, Anytime and All, sort by due date, priority or name, and search by title or step. A task can hold a checklist and repeat daily, weekly or monthly — completing a repeating task moves it to its next turn.',
+      },
+      {
+        Icon: ListTodo,
         title: 'Finish and undo',
-        body: 'Tap the circle to complete a task — it moves into Done today, where you can still undo it. Deleting shows a short undo toast, in case of a slip.',
+        body: 'Tap the circle to complete a task — it moves into Done today, where you can still undo it. Overdue tasks offer a one-tap “Move to today”, and deleting shows a short undo toast in case of a slip.',
       },
     ],
   },

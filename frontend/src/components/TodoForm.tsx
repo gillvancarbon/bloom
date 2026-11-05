@@ -1,9 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
-import { CalendarDays, Clock, X } from 'lucide-react'
-import type { Todo, TodoCategory, TodoImportance, TodoInput } from '../types'
-import { TODO_CATEGORIES, TODO_IMPORTANCE } from '../lib/todo'
+import { CalendarDays, Clock, ListChecks, Plus, Repeat, Trash2, X } from 'lucide-react'
+import type {
+  Subtask,
+  Todo,
+  TodoCategory,
+  TodoImportance,
+  TodoInput,
+  TodoRecurrence,
+} from '../types'
+import { TODO_CATEGORIES, TODO_IMPORTANCE, TODO_RECURRENCE } from '../lib/todo'
+import { toISODate } from '../lib/streak'
+
+function newSubtask(title = ''): Subtask {
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return { id, title, done: false }
+}
 
 interface TodoFormProps {
   mode: 'create' | 'edit'
@@ -19,6 +35,8 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
   const [importance, setImportance] = useState<TodoImportance>(todo?.importance ?? 'medium')
   const [dueDate, setDueDate] = useState(todo?.dueDate ?? '')
   const [dueTime, setDueTime] = useState(todo?.dueTime ?? '')
+  const [recurrence, setRecurrence] = useState<TodoRecurrence>(todo?.recurrence ?? 'none')
+  const [subtasks, setSubtasks] = useState<Subtask[]>(todo?.subtasks ?? [])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +75,10 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
         dueDate: dueDate || null,
         dueTime: dueDate ? dueTime || null : null,
         importance,
+        recurrence,
+        subtasks: subtasks
+          .map((subtask) => ({ ...subtask, title: subtask.title.trim() }))
+          .filter((subtask) => subtask.title.length > 0),
       })
       onClose()
     } catch (err) {
@@ -186,6 +208,46 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
           </div>
 
           <div className="mt-4">
+            <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+              <Repeat className="h-4 w-4 text-muted" aria-hidden />
+              Repeat
+            </span>
+            <div className="grid grid-cols-4 gap-2">
+              {TODO_RECURRENCE.map((option) => {
+                const selected = recurrence === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setRecurrence(option.id)
+                      // A repeating task needs an anchor date to roll from.
+                      if (option.id !== 'none' && !dueDate) setDueDate(toISODate(new Date()))
+                    }}
+                    aria-pressed={selected}
+                    className={`rounded-calm-sm border px-2 py-2 text-sm font-medium
+                                transition-all duration-calm ease-calm active:scale-[0.98]
+                                ${
+                                  selected
+                                    ? 'border-transparent bg-sage-100 text-sage-700 ring-2 ring-sage-400/40 dark:bg-sage-900/50 dark:text-sage-200'
+                                    : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
+                                }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            {recurrence !== 'none' && (
+              <p className="mt-1.5 text-xs text-muted">
+                Completing it moves it to the next{' '}
+                {recurrence === 'daily' ? 'day' : recurrence === 'weekly' ? 'week' : 'month'}{' '}
+                instead of leaving it done.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4">
             <label htmlFor="todo-due" className="mb-2 block text-sm font-medium text-ink">
               Due date <span className="font-normal text-muted">(optional)</span>
             </label>
@@ -281,6 +343,53 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                          transition-all duration-calm ease-calm
                          focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
             />
+          </div>
+
+          <div className="mt-4">
+            <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+              <ListChecks className="h-4 w-4 text-muted" aria-hidden />
+              Steps <span className="font-normal text-muted">(optional)</span>
+            </span>
+            {subtasks.length > 0 && (
+              <ul className="mb-2 space-y-2">
+                {subtasks.map((subtask, index) => (
+                  <li key={subtask.id} className="flex items-center gap-2">
+                    <input
+                      value={subtask.title}
+                      onChange={(e) =>
+                        setSubtasks((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, title: e.target.value } : s)),
+                        )
+                      }
+                      placeholder={`Step ${index + 1}`}
+                      maxLength={120}
+                      aria-label={`Step ${index + 1}`}
+                      className="w-full rounded-calm-sm border border-line bg-surface px-3 py-2 text-sm
+                                 text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
+                                 focus:ring-2 focus:ring-sage-400/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
+                      aria-label={`Remove step ${index + 1}`}
+                      className="silicone-quiet flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                                 text-muted hover:text-peach-600 dark:hover:text-peach-300"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setSubtasks((prev) => [...prev, newSubtask()])}
+              className="silicone-quiet inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium
+                         text-muted hover:text-ink"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add a step
+            </button>
           </div>
 
           {error && (

@@ -1,5 +1,8 @@
 import { Preferences } from '@capacitor/preferences'
 import { api } from '../api'
+import { localStore } from './localStore'
+import { localTodoStore } from './localTodoStore'
+import type { Habit, Todo } from '../types'
 
 /**
  * Small facade over the two data modes (web = REST, Android = on-device) for
@@ -28,5 +31,35 @@ export const dataClient = {
   async clearAll(): Promise<void> {
     if (localMode) return clearLocal()
     return clearRemote()
+  },
+  /** Read the whole dataset, whichever data mode is active. */
+  async readAll(): Promise<{ habits: Habit[]; todos: Todo[] }> {
+    if (localMode) {
+      const [habits, todos] = await Promise.all([localStore.list(), localTodoStore.list()])
+      return { habits, todos }
+    }
+    const [habits, todos] = await Promise.all([api.list(), api.todos.list()])
+    return { habits, todos }
+  },
+  /**
+   * Replace the whole dataset from an imported snapshot. Local mode writes the
+   * records straight through (keeping ids and history); the REST mode clears
+   * the server copy first and re-creates each record.
+   */
+  async importAll(bundle: { habits: Habit[]; todos: Todo[] }): Promise<void> {
+    if (localMode) {
+      await Promise.all([
+        localStore.replaceAll(bundle.habits),
+        localTodoStore.replaceAll(bundle.todos),
+      ])
+      return
+    }
+    await clearRemote()
+    for (const habit of bundle.habits) {
+      await api.create(habit)
+    }
+    for (const todo of bundle.todos) {
+      await api.todos.create(todo)
+    }
   },
 }

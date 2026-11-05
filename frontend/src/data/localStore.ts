@@ -82,6 +82,14 @@ export const localStore = {
     return sortHabits(await readAll())
   },
 
+  /** Replace the whole habit list, keeping ids and history (used by import). */
+  async replaceAll(habits: Habit[]): Promise<void> {
+    const normalized = habits.map((habit) => normalizeHabit(habit))
+    await writeAll(normalized)
+    const maxId = normalized.reduce((max, habit) => Math.max(max, habit.id), 0)
+    await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
+  },
+
   async create(input: HabitInput): Promise<Habit> {
     const habits = await readAll()
     const minOrder = habits.length ? Math.min(...habits.map((h) => h.order)) : 0

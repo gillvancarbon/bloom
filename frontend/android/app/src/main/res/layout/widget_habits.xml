@@ -74,4 +74,36 @@
             android:textSize="12sp"
             android:visibility="gone" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_tasks_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/widget_tasks_title"
+        android:textColor="#6B7A6B"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_task_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#31563D"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_task_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#31563D"
+        android:textSize="12sp"
+        android:visibility="gone" />
 </LinearLayout>

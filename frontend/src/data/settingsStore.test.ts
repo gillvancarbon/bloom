@@ -31,6 +31,12 @@ describe('normalizeSettings', () => {
     })
   })
 
+  it('defaults the task sort and rejects unknown values', () => {
+    expect(normalizeSettings(null).todoSort).toBe('due')
+    expect(normalizeSettings({ todoSort: 'importance' }).todoSort).toBe('importance')
+    expect(normalizeSettings({ todoSort: 'sideways' as never }).todoSort).toBe('due')
+  })
+
   it('keeps task reminders on by default and honours an explicit off', () => {
     expect(normalizeSettings(null).taskReminders).toBe(true)
     expect(normalizeSettings({ taskReminders: false }).taskReminders).toBe(false)

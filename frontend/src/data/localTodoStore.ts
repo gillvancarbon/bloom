@@ -1,6 +1,6 @@
 import { Preferences } from '@capacitor/preferences'
 import type { Todo, TodoInput } from '../types'
-import { normalizeTodo, sortTodos } from '../lib/todo'
+import { nextOccurrence, normalizeSubtasks, normalizeTodo, sortTodos } from '../lib/todo'
 
 /**
  * On-device to-do store for the Android build. Mirrors the REST surface and
@@ -48,6 +48,14 @@ export const localTodoStore = {
     return sortTodos(await readAll())
   },
 
+  /** Replace the whole task list, keeping ids and details (used by import). */
+  async replaceAll(todos: Todo[]): Promise<void> {
+    const normalized = todos.map((todo) => normalizeTodo(todo))
+    await writeAll(normalized)
+    const maxId = normalized.reduce((max, todo) => Math.max(max, todo.id), 0)
+    await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
+  },
+
   async create(input: TodoInput): Promise<Todo> {
     const todos = await readAll()
     const todo: Todo = {
@@ -59,6 +67,8 @@ export const localTodoStore = {
       dueDate: input.dueDate || null,
       dueTime: input.dueDate ? input.dueTime || null : null,
       importance: input.importance || 'medium',
+      recurrence: input.recurrence || 'none',
+      subtasks: normalizeSubtasks(input.subtasks),
       archived: false,
       createdAt: new Date().toISOString(),
       completedAt: null,
@@ -79,6 +89,8 @@ export const localTodoStore = {
       dueDate: input.dueDate || null,
       dueTime: input.dueDate ? input.dueTime || null : null,
       importance: input.importance || todos[index].importance || 'medium',
+      recurrence: input.recurrence || 'none',
+      subtasks: normalizeSubtasks(input.subtasks),
     }
     todos[index] = updated
     await writeAll(todos)
@@ -104,6 +116,21 @@ export const localTodoStore = {
     const index = todos.findIndex((todo) => todo.id === id)
     if (index === -1) throw new Error('Task not found')
     const current = todos[index]
+
+    // A repeating task rolls forward instead of staying done, so it never
+    // disappears into "Done today" and reappears as a fresh overdue task.
+    if (!current.done && current.recurrence !== 'none') {
+      const updated: Todo = {
+        ...current,
+        done: false,
+        completedAt: null,
+        dueDate: nextOccurrence(current.dueDate, current.recurrence),
+      }
+      todos[index] = updated
+      await writeAll(todos)
+      return updated
+    }
+
     const nextDone = !current.done
     const updated: Todo = {
       ...current,

@@ -4,6 +4,7 @@ import { localTodoStore } from '../data/localTodoStore'
 import { normalizeTodo, sortTodos } from '../lib/todo'
 import { useSettings } from '../context/SettingsContext'
 import { syncTaskReminders } from '../lib/notifications'
+import { syncWidget } from '../lib/widget'
 import { onDataChanged } from '../lib/dataEvents'
 import type { Todo, TodoInput } from '../types'
 
@@ -46,6 +47,11 @@ export function useTodos() {
   useEffect(() => {
     syncTaskReminders(todos, settings).catch(() => undefined)
   }, [todos, settings])
+
+  // Keep the home-screen widget's task section in step too.
+  useEffect(() => {
+    syncWidget({ todos }, new Date(), settings.weekStart).catch(() => undefined)
+  }, [todos, settings.weekStart])
 
   // Re-arm when the app returns to the foreground (windows are one-shot).
   useEffect(() => {

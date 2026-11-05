@@ -30,6 +30,10 @@ public class HabitWidgetProvider extends AppWidgetProvider {
             R.id.widget_item_1, R.id.widget_item_2, R.id.widget_item_3
     };
 
+    private static final int[] TASK_ROW_IDS = {
+            R.id.widget_task_1, R.id.widget_task_2
+    };
+
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         String snapshot = readSnapshot(context);
@@ -60,14 +64,19 @@ public class HabitWidgetProvider extends AppWidgetProvider {
 
         int done = 0;
         int total = 0;
+        int taskTotal = 0;
         JSONArray items = new JSONArray();
+        JSONArray taskItems = new JSONArray();
         if (snapshot != null) {
             try {
                 JSONObject json = new JSONObject(snapshot);
                 done = json.optInt("done", 0);
                 total = json.optInt("total", 0);
+                taskTotal = json.optInt("taskTotal", 0);
                 JSONArray parsed = json.optJSONArray("items");
                 if (parsed != null) items = parsed;
+                JSONArray parsedTasks = json.optJSONArray("taskItems");
+                if (parsedTasks != null) taskItems = parsedTasks;
             } catch (Exception ignored) {
                 // Corrupt snapshot: fall back to the empty state.
             }
@@ -90,6 +99,18 @@ public class HabitWidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(ROW_IDS[i], (itemDone ? "✓  " : "○  ") + name);
             } else {
                 views.setViewVisibility(ROW_IDS[i], View.GONE);
+            }
+        }
+
+        // A quiet second section for the tasks that need attention today.
+        views.setViewVisibility(
+                R.id.widget_tasks_title, taskTotal > 0 ? View.VISIBLE : View.GONE);
+        for (int i = 0; i < TASK_ROW_IDS.length; i++) {
+            if (i < taskItems.length()) {
+                views.setViewVisibility(TASK_ROW_IDS[i], View.VISIBLE);
+                views.setTextViewText(TASK_ROW_IDS[i], "•  " + taskItems.optString(i, ""));
+            } else {
+                views.setViewVisibility(TASK_ROW_IDS[i], View.GONE);
             }
         }
 

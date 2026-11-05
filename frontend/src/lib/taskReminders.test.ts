@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Todo } from '../types'
+import { normalizeTodo } from './todo'
 import { TASK_NUDGE_HOUR, taskReminderAt, taskReminderBody } from './taskReminders'
 
 function todo(overrides: Partial<Todo> = {}): Todo {
-  return {
+  return normalizeTodo({
     id: 1,
     title: 'Pay rent',
     note: null,
@@ -12,11 +13,13 @@ function todo(overrides: Partial<Todo> = {}): Todo {
     dueDate: null,
     dueTime: null,
     importance: 'medium',
+    recurrence: 'none',
+    subtasks: [],
     archived: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     completedAt: null,
     ...overrides,
-  }
+  } as Todo)
 }
 
 // A fixed local reference: 4 Nov 2026, 10:00.

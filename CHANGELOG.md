@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **To-do views** — the To-do screen groups tasks into **Today** (including
+  overdue), **Upcoming** and **Anytime**, with an **All** view, using the same
+  calm chips as the habit periods. Tasks sort by due date, priority, A–Z or
+  newest.
+- **Repeating tasks** — a task can repeat daily, weekly or monthly. Completing
+  it rolls it forward to its next occurrence instead of leaving it done, with an
+  undo.
+- **Quick add** — type a sentence such as “call mum tomorrow 6pm” and Bloom
+  works out the title, due date/time, priority (`!high`), type (`#work`) and
+  repeat (`every monday`), previewing what it understood before you add it.
+- **Search** — find a task by its title, note or checklist step.
+- **Checklists** — add steps to a task and tick them from the card; progress
+  shows as `2/3 steps`.
+- **One-tap reschedule** — overdue tasks offer a **Move to today** button.
+- **Export & import** — download a full JSON snapshot, and restore one back, from
+  **Settings → Data & backups**. Import replaces the current data after taking a
+  safety backup.
+- **Task widget section** — the Android home-screen widget now also shows the
+  tasks due today.
+
 ## [1.2.4] — 2026-11-05
 
 ### Changed

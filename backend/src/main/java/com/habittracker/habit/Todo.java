@@ -9,6 +9,8 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A single to-do task. Kept intentionally light: a title, an optional note,
@@ -59,6 +61,16 @@ public class Todo {
     @Column(nullable = false, length = 10)
     private String importance = "medium";
 
+    /** How this task repeats: "none" (default), "daily", "weekly" or "monthly". */
+    @Pattern(regexp = "none|daily|weekly|monthly", message = "Unknown repeat")
+    @Column(nullable = false, length = 10)
+    private String recurrence = "none";
+
+    /** An optional checklist, stored inline as JSON. */
+    @Convert(converter = SubtaskListConverter.class)
+    @Column(name = "subtasks", columnDefinition = "TEXT")
+    private List<Subtask> subtasks = new ArrayList<>();
+
     /** Archived tasks keep their details but leave the board. */
     @Column(name = "is_archived", nullable = false)
     private boolean archived = false;
@@ -77,6 +89,12 @@ public class Todo {
         }
         if (this.importance == null || this.importance.isBlank()) {
             this.importance = "medium";
+        }
+        if (this.recurrence == null || this.recurrence.isBlank()) {
+            this.recurrence = "none";
+        }
+        if (this.subtasks == null) {
+            this.subtasks = new ArrayList<>();
         }
     }
 
@@ -144,6 +162,22 @@ public class Todo {
 
     public void setImportance(String importance) {
         this.importance = importance;
+    }
+
+    public String getRecurrence() {
+        return (recurrence == null || recurrence.isBlank()) ? "none" : recurrence;
+    }
+
+    public void setRecurrence(String recurrence) {
+        this.recurrence = recurrence;
+    }
+
+    public List<Subtask> getSubtasks() {
+        return subtasks == null ? new ArrayList<>() : subtasks;
+    }
+
+    public void setSubtasks(List<Subtask> subtasks) {
+        this.subtasks = subtasks;
     }
 
     public boolean isArchived() {

@@ -4,9 +4,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -52,6 +53,8 @@ public class TodoService {
         existing.setNote(cleanNote(updated.getNote()));
         existing.setCategory(cleanCategory(updated.getCategory()));
         existing.setImportance(cleanImportance(updated.getImportance()));
+        existing.setRecurrence(cleanRecurrence(updated.getRecurrence()));
+        existing.setSubtasks(cleanSubtasks(updated.getSubtasks()));
         existing.setDueDate(updated.getDueDate());
         existing.setDueTime(updated.getDueDate() == null ? null : updated.getDueTime());
         return todoRepository.save(existing);
@@ -70,8 +73,35 @@ public class TodoService {
 
     public Todo toggleTodo(Long id) {
         Todo todo = getTodoById(id);
+
+        // A repeating task rolls forward to its next occurrence instead of
+        // staying done, so a recurring chore never piles up as overdue.
+        if (!todo.isDone() && !"none".equals(todo.getRecurrence())) {
+            todo.setDueDate(nextOccurrence(todo.getDueDate(), todo.getRecurrence()));
+            todo.setDone(false);
+            todo.setCompletedAt(null);
+            return todoRepository.save(todo);
+        }
+
         todo.toggle();
         return todoRepository.save(todo);
+    }
+
+    /** The next future date for a repeating task (skips past-due occurrences). */
+    private LocalDate nextOccurrence(LocalDate dueDate, String recurrence) {
+        LocalDate today = LocalDate.now();
+        LocalDate next = dueDate == null ? today : dueDate;
+        int guard = 0;
+        do {
+            next = switch (recurrence) {
+                case "daily" -> next.plusDays(1);
+                case "weekly" -> next.plusWeeks(1);
+                case "monthly" -> next.plusMonths(1);
+                default -> next.plusDays(1);
+            };
+            guard++;
+        } while (!next.isAfter(today) && guard < 1000);
+        return next;
     }
 
     private void normalize(Todo todo) {
@@ -81,6 +111,8 @@ public class TodoService {
         todo.setNote(cleanNote(todo.getNote()));
         todo.setCategory(cleanCategory(todo.getCategory()));
         todo.setImportance(cleanImportance(todo.getImportance()));
+        todo.setRecurrence(cleanRecurrence(todo.getRecurrence()));
+        todo.setSubtasks(cleanSubtasks(todo.getSubtasks()));
         if (todo.getDueDate() == null) {
             todo.setDueTime(null);
         }
@@ -100,5 +132,27 @@ public class TodoService {
 
     private String cleanImportance(String importance) {
         return (importance == null || importance.isBlank()) ? "medium" : importance;
+    }
+
+    private String cleanRecurrence(String recurrence) {
+        return (recurrence == null || recurrence.isBlank()) ? "none" : recurrence;
+    }
+
+    /** Trim step titles, drop blanks, and make sure every step has an id. */
+    private List<Subtask> cleanSubtasks(List<Subtask> subtasks) {
+        if (subtasks == null) {
+            return new ArrayList<>();
+        }
+        List<Subtask> cleaned = new ArrayList<>();
+        for (Subtask subtask : subtasks) {
+            if (subtask == null || subtask.getTitle() == null) continue;
+            String title = subtask.getTitle().trim();
+            if (title.isEmpty()) continue;
+            String id = (subtask.getId() == null || subtask.getId().isBlank())
+                    ? UUID.randomUUID().toString()
+                    : subtask.getId();
+            cleaned.add(new Subtask(id, title, subtask.isDone()));
+        }
+        return cleaned;
     }
 }
