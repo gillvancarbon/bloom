@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#4A7C59</color>
+    <color name="colorPrimaryDark">#25422E</color>
+    <color name="colorAccent">#D98B56</color>
+    <!-- App backdrop colour, used for both system bars so they blend in.
+         A night variant lives in values-night/colors.xml. -->
+    <color name="bloomPage">#F6F9F6</color>
+</resources>

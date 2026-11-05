@@ -1,0 +1,383 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Semantic theme tokens ──────────────────────────────────────────
+   Three hue families carry the app: sage, peach, mint. A fourth, an icy
+   "frost" blue, is reserved for streak freezes. Neutrals are tinted with
+   a hint of sage so everything harmonises.
+   ------------------------------------------------------------------ */
+:root {
+  --page: 246 249 246; /* page backdrop, faint mint */
+  --surface: 250 250 247; /* warm white */
+  --raised: 255 255 255; /* cards */
+  --ink: 40 48 40; /* deep sage-charcoal */
+  --muted: 107 122 107; /* soft sage grey */
+  --line: 224 232 224; /* pale sage line */
+  --shadow: 37 66 46; /* sage-tinted shadow */
+  --cal-none: 233 240 233; /* no data — pale sage wash */
+  --cal-empty: 214 106 94; /* nothing done — soft red */
+  --cal-partial: 224 158 60; /* some done — amber */
+  --cal-full: 96 158 106; /* all done — green */
+  color-scheme: light;
+}
+
+.dark {
+  --page: 18 22 19; /* deep forest charcoal */
+  --surface: 22 26 23;
+  --raised: 31 37 32; /* raised cards */
+  --ink: 232 236 232; /* soft off-white */
+  --muted: 154 168 154; /* muted sage */
+  --line: 56 66 57; /* dark sage line */
+  --shadow: 0 0 0; /* neutral shadow on dark */
+  --cal-none: 45 54 46; /* no data */
+  --cal-empty: 168 82 74; /* nothing done */
+  --cal-partial: 178 126 56; /* some done */
+  --cal-full: 88 136 98; /* all done */
+  color-scheme: dark;
+}
+
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  @apply bg-page text-ink font-sans antialiased;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Only the page itself fades when the theme flips. Putting a colour
+     transition on *every* element forces constant style recalculation and
+     janks scrolling on phones, so it is deliberately not done. */
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+/* ── No text selection ───────────────────────────────────────────────
+   Nothing in the app is meant to be selected or copied. This also stops
+   the long-press text-selection callout from fighting the long-press
+   reorder gesture. Form fields stay selectable. */
+html,
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Safe-area aware page padding (notches + gesture bar on phones) */
+.safe-shell {
+  padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  /* Clear the fixed bottom navigation plus the gesture bar. */
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 640px) {
+  .safe-shell {
+    padding-top: calc(2.5rem + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Thin, calm scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-mint-300 dark:bg-mint-800 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-mint-400 dark:bg-mint-700;
+}
+
+/* Focus ring that matches the palette */
+:focus-visible {
+  outline: 2px solid theme('colors.sage.400');
+  outline-offset: 2px;
+}
+
+/* ── Minimal neomorphic controls ─────────────────────────────────────
+   Soft-UI buttons. Each control shares the colour of the surface it
+   sits on and is modelled only by two opposing shadows — a soft light
+   highlight to the top-left and a soft shade to the bottom-right.
+   Pressing inverts them to an inset, so the control reads as pushed
+   into the surface. Deliberately minimal: no top gloss or hard lip on
+   the neutral buttons, and barely any movement. Only box-shadow (plus
+   a hair of scale) animates, so it stays cheap on phones.
+   ------------------------------------------------------------------ */
+.silicone,
+.silicone-quiet,
+.silicone-primary,
+.silicone-danger,
+.silicone-frost {
+  --neo-light: rgb(255 255 255 / 0.9);
+  --neo-dark: rgb(var(--shadow) / 0.16);
+  --neo-raise: -3px -3px 6px var(--neo-light), 3px 3px 8px var(--neo-dark);
+  --neo-raise-hover: -4px -4px 9px var(--neo-light), 5px 5px 12px var(--neo-dark);
+  --neo-sink: inset 3px 3px 6px var(--neo-dark), inset -3px -3px 6px var(--neo-light);
+
+  position: relative;
+  border: 0;
+  background-color: rgb(var(--raised));
+  color: rgb(var(--ink));
+  box-shadow: var(--neo-raise);
+  transition:
+    box-shadow 170ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    transform 170ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    background-color 200ms ease,
+    background-image 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.silicone:not(:disabled):hover,
+.silicone-quiet:not(:disabled):hover,
+.silicone-primary:not(:disabled):hover,
+.silicone-danger:not(:disabled):hover,
+.silicone-frost:not(:disabled):hover {
+  box-shadow: var(--neo-raise-hover);
+}
+
+.silicone:not(:disabled):active,
+.silicone-quiet:not(:disabled):active,
+.silicone-primary:not(:disabled):active,
+.silicone-danger:not(:disabled):active,
+.silicone-frost:not(:disabled):active {
+  box-shadow: var(--neo-sink);
+  transform: scale(0.98);
+}
+
+/* Primary — sage, softly convex */
+.silicone-primary {
+  --neo-light: rgb(255 255 255 / 0.3);
+  --neo-dark: rgb(26 46 32 / 0.55);
+
+  background-color: #4a7c59;
+  background-image: linear-gradient(145deg, #57895f 0%, #3f6b4c 100%);
+  color: #fff;
+}
+
+.silicone-primary:not(:disabled):hover {
+  background-image: linear-gradient(145deg, #5d9165 0%, #3a6347 100%);
+}
+
+.silicone-primary:not(:disabled):active {
+  background-image: linear-gradient(145deg, #3f6b4c 0%, #57895f 100%);
+}
+
+/* Danger — peach, softly convex */
+.silicone-danger {
+  --neo-light: rgb(255 255 255 / 0.32);
+  --neo-dark: rgb(115 65 39 / 0.5);
+
+  background-color: #d98b56;
+  background-image: linear-gradient(145deg, #e39a68 0%, #c97a45 100%);
+  color: #fff;
+}
+
+.silicone-danger:not(:disabled):hover {
+  background-image: linear-gradient(145deg, #eaa277 0%, #c1703c 100%);
+}
+
+.silicone-danger:not(:disabled):active {
+  background-image: linear-gradient(145deg, #c97a45 0%, #e39a68 100%);
+}
+
+/* Frost — icy blue, used for streak freezes */
+.silicone-frost {
+  --neo-light: rgb(255 255 255 / 0.45);
+  --neo-dark: rgb(15 45 85 / 0.55);
+
+  background-color: #3f7fc4;
+  background-image: linear-gradient(145deg, #77bcec 0%, #2f6aa8 100%);
+  color: #eaf6ff;
+}
+
+.silicone-frost:not(:disabled):hover {
+  background-image: linear-gradient(145deg, #8ac8f1 0%, #28609b 100%);
+}
+
+.silicone-frost:not(:disabled):active {
+  background-image: linear-gradient(145deg, #2f6aa8 0%, #77bcec 100%);
+}
+
+/* Quiet — the same soft surface, just a hushed label */
+.silicone-quiet {
+  background-color: rgb(var(--surface));
+  color: rgb(var(--muted));
+}
+
+/* Colour swatches borrow the same soft depth beneath their own colour. */
+.silicone-swatch {
+  --neo-light: rgb(255 255 255 / 0.6);
+  --neo-dark: rgb(var(--shadow) / 0.22);
+  --neo-raise: -3px -3px 6px var(--neo-light), 3px 3px 8px var(--neo-dark);
+  --neo-sink: inset 3px 3px 6px var(--neo-dark), inset -3px -3px 6px var(--neo-light);
+
+  position: relative;
+  border: 0;
+  box-shadow: var(--neo-raise);
+  transition:
+    box-shadow 170ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    transform 170ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.silicone-swatch:hover {
+  box-shadow:
+    -4px -4px 9px var(--neo-light),
+    5px 5px 12px var(--neo-dark);
+}
+
+.silicone-swatch:active {
+  box-shadow: var(--neo-sink);
+  transform: scale(0.96);
+}
+
+.dark .silicone,
+.dark .silicone-quiet,
+.dark .silicone-swatch {
+  --neo-light: rgb(255 255 255 / 0.05);
+  --neo-dark: rgb(0 0 0 / 0.55);
+}
+
+.dark .silicone-primary {
+  --neo-light: rgb(255 255 255 / 0.14);
+  --neo-dark: rgb(0 0 0 / 0.6);
+}
+
+.dark .silicone-danger {
+  --neo-light: rgb(255 255 255 / 0.16);
+  --neo-dark: rgb(0 0 0 / 0.6);
+}
+
+.dark .silicone-frost {
+  --neo-light: rgb(255 255 255 / 0.18);
+  --neo-dark: rgb(0 0 0 / 0.6);
+}
+
+/* Disabled controls sit flat rather than reacting. */
+.silicone:disabled,
+.silicone-quiet:disabled,
+.silicone-primary:disabled,
+.silicone-danger:disabled,
+.silicone-frost:disabled,
+.silicone-swatch:disabled {
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Soft drifting background glows — pure decoration.
+   Radial gradients give the same soft edges as a 90px blur() but cost
+   almost nothing to composite, which matters a lot on a phone GPU. */
+.bg-aura::before,
+.bg-aura::after {
+  content: '';
+  position: fixed;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+  /* Promote each blob to its own layer so scrolling never repaints them. */
+  transform: translateZ(0);
+}
+.bg-aura::before {
+  width: 32rem;
+  height: 32rem;
+  top: -10rem;
+  right: -8rem;
+  opacity: 0.5;
+  background: radial-gradient(circle, rgb(179 211 182) 0%, rgb(179 211 182 / 0) 70%);
+}
+.bg-aura::after {
+  width: 26rem;
+  height: 26rem;
+  bottom: -10rem;
+  left: -8rem;
+  opacity: 0.5;
+  background: radial-gradient(circle, rgb(251 227 209) 0%, rgb(251 227 209 / 0) 70%);
+}
+.dark .bg-aura::before {
+  background: radial-gradient(circle, rgb(37 66 46) 0%, rgb(37 66 46 / 0) 70%);
+  opacity: 0.6;
+}
+.dark .bg-aura::after {
+  background: radial-gradient(circle, rgb(79 45 28) 0%, rgb(79 45 28 / 0) 70%);
+  opacity: 0.5;
+}
+
+/* ── Opt-in phone preview (?phone) ───────────────────────────────────
+   Renders the app inside a real phone-sized iframe so media queries such
+   as `sm:` resolve against the phone width, exactly like the APK.
+   Override the size with ?phone&w=393&h=873.
+   ------------------------------------------------------------------ */
+.phone-preview body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: #0f120e;
+}
+.phone-frame {
+  position: relative;
+  box-sizing: content-box;
+  border: 8px solid #05070a;
+  border-radius: 2.25rem;
+  background: #05070a;
+  box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.65);
+  overflow: hidden;
+}
+.phone-frame-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* A small caption so the previewed size is always visible. */
+.phone-frame-caption {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 9999;
+  transform: translateX(-50%);
+  pointer-events: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: rgb(0 0 0 / 0.55);
+  padding: 0.1rem 0.5rem;
+  font-size: 10px;
+  color: #fff;
+}
+/* The framed app hides its scrollbar so the viewport width is exactly the
+   phone width instead of phone width minus a desktop scrollbar. */
+.phone-embed {
+  scrollbar-width: none;
+}
+.phone-embed::-webkit-scrollbar,
+.phone-embed ::-webkit-scrollbar {
+  display: none;
+}

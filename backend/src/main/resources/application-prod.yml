@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────
+#  Production profile.
+#  Enable with:  SPRING_PROFILES_ACTIVE=prod
+#
+#  In production the schema is managed by Flyway (versioned migrations
+#  under db/migration) instead of Hibernate auto-DDL, and the H2 console
+#  is switched off.
+# ─────────────────────────────────────────────────────────────────
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+
+logging:
+  level:
+    com.habittracker: INFO
+    org.flywaydb: INFO

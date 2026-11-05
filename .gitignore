@@ -1,0 +1,28 @@
+# Frontend
+node_modules/
+frontend/dist/
+
+# Backend
+backend/target/
+backend/data/
+*.log
+
+# Android build output & local SDK/signing config
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/local.properties
+frontend/android/keystore.properties
+frontend/android/*.jks
+frontend/android/app/src/main/assets/public/
+frontend/android/app/src/main/assets/capacitor.config.json
+frontend/android/app/src/main/assets/capacitor.plugins.json
+
+# Release artifacts
+release/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store

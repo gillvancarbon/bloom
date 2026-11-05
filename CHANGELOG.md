@@ -1,0 +1,185 @@
+# Changelog
+
+All notable changes to Bloom are documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.2.3] — 2026-11-05
+
+### Added
+
+- **Welcome tour** — new users are met by a short, five-slide introduction to
+  Bloom that covers habits and streaks, parts of the day, acting reminders and
+  the to-do list. It offers to turn on reminders and can finish by opening the
+  habit templates, so a first session starts with something to do. The tour runs
+  once; play it again any time from **Settings → Help**.
+- **How to use Bloom** — a step-by-step guide, reachable from **Settings →
+  Help**, that walks through every screen and gesture (spaces, habits and
+  check-offs, streaks and freezes, periods, editing and reordering, the to-do
+  list, the calendar and insights, reminders, and your data).
+- **About screen** — **Settings → About** shows the version and the plain
+  privacy summary, with links to the privacy policy, terms of use, MIT licence
+  and third-party notices. The project now ships [PRIVACY.md](PRIVACY.md),
+  [TERMS.md](TERMS.md), [SECURITY.md](SECURITY.md) and
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- **Today view with Morning, Afternoon, Evening and Anytime** — the Habits
+  screen now shows only habits scheduled for today, grouped into a time-of-day
+  chip switcher below "Your habits". Each chip shows how much is done
+  (`done/total`) and flags overdue work with a dot. Swipe left or right to move
+  between periods, or tap a chip; the period matching the current time is
+  selected when the app opens, and "Anytime" is always pinned last for habits
+  that don't belong to one part of the day. Each habit gains a **Time of day**
+  choice, and older habits fall back to their deadline. A weekly habit completed
+  today stays visible so it can still be undone.
+- **Reminders that act** — reminders now carry **Complete** and **Snooze 1h**
+  buttons, so a nudge can be dealt with without opening the app. The to-do list
+  gains its own due-time reminders (nudging at a task's due time, or a gentle
+  morning nudge when it only has a date), and both are controlled from a new
+  **Task reminders** switch in Settings.
+- **Streak freezes** — a frozen-flame token (a blue flame with a snowflake carved
+  into it) beside the Templates button shows how many freezes are left (three
+  each week). Spend one to protect a habit's most recent
+  missed day and keep its streak alive, so a busy day doesn't wipe out weeks of
+  work. Off-schedule days and flexible "N× per week" habits are left alone.
+- **A little more insight** — Insights now opens with a **This week** review, and
+  each habit expands to a 30-day heatmap with milestone badges for streak and
+  total-completion milestones.
+- **See habits that aren't on today** — a collapsible **Not today** section under
+  the day's list gathers the habits whose schedule doesn't fall on today (an
+  off-day for a weekday habit, or a weekly habit already at its target) so they
+  can still be reviewed and edited, moved to another time of day, or completed
+  early.
+- **Shape your day** — a controls row under the period chips adds a **Hide done**
+  toggle and a sort choice (To-do first, My order, By deadline, A–Z). Both are
+  remembered in Settings, and drag-to-reorder is enabled automatically when
+  "My order" is selected. Turning on **Follow the clock** in Settings advances
+  the visible period as the day goes on.
+- **Quick reclassify** — each habit card shows its part of the day as a small
+  chip; tap it to move the habit to another period without opening the form.
+  The card menu and the add/edit form suggest matching the period to a habit's
+  deadline, so the two stay consistent.
+- **Home-screen widget reflects today** — the widget snapshot now lists only
+  today's habits, names the current part of the day, and counts progress against
+  today's schedule instead of all active habits.
+- **Completion ding** — finishing a habit or task plays a satisfying sound.
+  Choose any of the phone's notification ringtones (or the bundled gentle
+  chime, the phone default, or silence) in Settings, under a new **Sound**
+  section. The completion sound can differ from the reminder sound, or reuse it.
+- **Flame on the streak** — the Habits summary now shows a small flame beside
+  the day-streak number, so a growing streak reads at a glance.
+- **Category on the habit card** — each habit now shows its category as a
+  rounded chip to the right of its name, so its type is visible at a glance.
+- **Task priority** — choose Low, Medium or High when creating a task; higher
+  priority floats up within the same due slot and shows as a chip on the card.
+- **Archive tasks** — the to-do leaf menu can now archive/restore a task, kept
+  in a collapsible "Archived" section, just like habits.
+- **Startup splash** — a short, on-brand loading screen (white leaf on a sage
+  disc) shows while the app warms up, so it never flashes in half-drawn.
+- **Day-streak stat** — the Habits summary now shows how many days in a row at
+  least one habit was completed (a single completion keeps it alive).
+- **Quick archive** — the leaf menu again offers Archive/Restore alongside edit
+  and delete, and all three buttons stay fully visible.
+- **Phone-sized web preview** — add `?phone` to the URL to render the web build
+  in a real 393 × 873 iframe (override with `&w=`/`&h=`), so it can be compared
+  directly with the Android build.
+- **Matching app icon + splash** — the launcher icon, adaptive icon and splash
+  screens now use the same white leaf on a sage silicone disc as the header
+  mark, instead of the old mint tile with a sage leaf.
+
+### Changed
+
+- **Minimal neomorphic buttons** — the tactile "silicone" controls are now soft
+  UI neomorphic: every button shares the colour of the surface it sits on and is
+  modelled purely by a soft light highlight (top-left) and shade (bottom-right),
+  which invert to an inset when pressed. Cleaner, flatter and quieter than the
+  old raised silicone lip, and cheaper to composite on phones.
+- **Reminders now work in the background** — each habit keeps a rolling week of
+  one-shot wakeup alarms (`RTC_WAKEUP` with `allowWhileIdle`), so nudges arrive
+  even when the app is closed and the phone is in Doze. The window re-arms when
+  habits or settings change and whenever the app returns to the foreground; the
+  OS batches the alarms, so battery use stays low.
+- **Reminder sound is now a choice** — pick any device notification ringtone for
+  reminders, not just the bundled chime. The Android notification channel is
+  rebuilt behind the scenes to match (channel sound is immutable), so the change
+  takes effect immediately.
+- **No more overlay flicker** — Settings, Insights, Calendar, the template
+  picker and the add/edit/delete dialogs now appear fully opaque and in place on
+  the very first frame; only the closing fade is kept.
+- Reordering is now **press-and-hold, then drag** instead of a visible grip
+  handle, on both the web and Android builds.
+- Templates are reachable on phones (icon-only below the `sm` breakpoint).
+- Text can no longer be selected across the app; form fields stay selectable.
+- Smoother scrolling and transitions on Android: replaced the large
+  `blur(90px)` background glows with radial gradients, removed the global
+  colour transition and the nav's backdrop blur, and trimmed layout animations.
+- The bottom navigation no longer shifts when switching between Habits and
+  To-do.
+- The Bloom mark beside the wordmark is now a slightly larger silicone button,
+  matching the other tactile controls.
+- **Reminders are now a choice, not a clock time** — pick "15 minutes before",
+  "1 hour before" and so on, relative to each habit's deadline, instead of
+  typing an exact time. The Settings default seeds new habits.
+
+### Removed
+
+- **Haptics** — Bloom no longer vibrates on taps, completions or notifications.
+  The Feel section and its intensity control are gone, and reminder channels are
+  now silent-only (a fresh channel id applies this to existing installs).
+
+### Fixed
+
+- **Android reminders now fire reliably** — the schedule used `at` together with
+  `repeats`, which the plugin turns into a fixed-interval repeat, and the cron
+  trigger re-armed with a non-wakeup alarm that Doze could defer. Reminders now
+  use rolling one-shot wakeup alarms, so they arrive on time with the app closed.
+
+## [1.2.0] — 2026-11-02
+
+### Added
+
+- **Settings screen** — tap the Bloom logo (top-left) to open it. Includes
+  reminders, appearance, haptics, automatic backups and a confirm-gated
+  "clear all data" action.
+- **Habit reminders** — per-habit or default reminder times, delivered as local
+  notifications on Android (with a browser fallback on the web).
+- **Home-screen widget** — a quiet snapshot of today's habits with a progress
+  bar and up to three habit rows.
+- **Automatic local backups** — a rolling set of on-device restore points
+  (once per day, plus manual), with a safety snapshot before every restore.
+- **Richer habits** — weekday and "N× per week" schedules, categories, target
+  vs. actual progress, archiving, and drag-to-reorder.
+- **Insights** — weekly/monthly completion rates, perfect-day streaks, best
+  streak, a 30-day trend chart, and per-habit totals.
+- **Habit templates** — a non-blocking first-run helper to add a few gentle
+  habits in one tap.
+- **Undo** — deleting a habit or task now offers a short undo window.
+- **Reliability** — a React error boundary, offline-retry error states, and
+  versioned local-schema migrations.
+- **Localisation of format** — 12/24-hour clock and configurable week start.
+- **Engineering** — ESLint + Prettier, in-repo unit tests (Vitest), a CI
+  workflow, `.editorconfig`, `LICENSE`, `CONTRIBUTING.md`, and `/api/v1`
+  aliases with profile-based configuration and Flyway migrations on the
+  backend.
+
+### Changed
+
+- A completed habit now shows a calm **Done** label instead of a countdown.
+- Fixed a blank screen that could appear after deleting the last habit.
+- Android: `minSdk` 23, `compileSdk`/`targetSdk` 36, AGP 8.9.2, Gradle 8.11.1.
+
+## [1.1.0] — 2026-11-01
+
+### Added
+
+- Consistency calendar with month navigation.
+- Per-habit deadlines with countdown and overdue states.
+- To-do list with categories, notes, and due date/time.
+- Light and dark themes; silicone button system.
+
+## [1.0.0] — 2026-10-25
+
+### Added
+
+- Initial habit tracker and to-do list.
