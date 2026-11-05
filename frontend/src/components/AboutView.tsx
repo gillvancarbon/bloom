@@ -130,22 +130,21 @@ export function AboutView({ onClose }: AboutViewProps) {
           <Card Icon={ScrollText} title="Terms & health">
             <p>
               Bloom is a wellbeing tool, <strong>not a medical device</strong>, and its reminders
-              are best-effort. It is provided “as is”, without warranty.
+              are best-effort. It is provided “as is”, without warranty. Keep your own backups —
+              uninstalling the app removes its data.
             </p>
-            <ExternalLinkRow href={LINKS.terms} label="Terms of use" hint="Use of the app" />
           </Card>
 
-          <Card Icon={Github} title="Open source">
+          <Card Icon={Github} title="Licence">
             <p>
-              Bloom is free and open source under the MIT licence, built with React, Spring Boot and
-              other open-source projects.
+              Bloom is free for personal, noncommercial use. You may not sell it or redistribute it
+              commercially. It is built with React, Spring Boot and other open-source projects.
             </p>
-            <ExternalLinkRow href={LINKS.repo} label="Source code" hint="View and contribute" />
-            <ExternalLinkRow href={LINKS.license} label="MIT licence" hint="How you may reuse it" />
+            <ExternalLinkRow href={LINKS.repo} label="Source code" hint="View the project" />
             <ExternalLinkRow
-              href={LINKS.notices}
-              label="Third-party notices"
-              hint="Software and assets we build on"
+              href={LINKS.license}
+              label="Licence"
+              hint="Personal use, no commercial use"
             />
           </Card>
 

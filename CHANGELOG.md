@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.4] — 2026-11-05
+
+### Changed
+
+- **Licence** — Bloom is now released under the
+  [PolyForm Noncommercial License 1.0.0](LICENSE): free for personal,
+  noncommercial use, with no selling or commercial redistribution.
+- **Simpler documentation** — the README no longer uses emojis, and the privacy
+  note, health disclaimer and third-party credit now live in the README and the
+  in-app About screen. `TERMS.md`, `SECURITY.md` and `THIRD_PARTY_NOTICES.md`
+  were removed.
+
 ## [1.2.3] — 2026-11-05
 
 ### Added
@@ -20,10 +32,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   check-offs, streaks and freezes, periods, editing and reordering, the to-do
   list, the calendar and insights, reminders, and your data).
 - **About screen** — **Settings → About** shows the version and the plain
-  privacy summary, with links to the privacy policy, terms of use, MIT licence
-  and third-party notices. The project now ships [PRIVACY.md](PRIVACY.md),
-  [TERMS.md](TERMS.md), [SECURITY.md](SECURITY.md) and
-  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+  privacy summary, with links to the privacy policy and licence. The project now
+  ships [PRIVACY.md](PRIVACY.md) and a [LICENSE](LICENSE) for personal,
+  noncommercial use.
 - **Today view with Morning, Afternoon, Evening and Anytime** — the Habits
   screen now shows only habits scheduled for today, grouped into a time-of-day
   chip switcher below "Your habits". Each chip shows how much is done

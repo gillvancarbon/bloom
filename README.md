@@ -5,65 +5,68 @@ A calm, wellbeing-focused habit tracker and to-do list built with **Spring Boot
 streaks, keep a gentle task list, and switch between a soft light theme and a
 restful dark theme.
 
+**[Download the Android app](https://github.com/gillvancarbon/bloom/releases/latest/download/bloom.apk)** —
+free for personal, noncommercial use.
+
 ## Features
 
-- 🔀 **Two calm spaces** — switch between **Habits** and **To-do** with the two
+- **Two calm spaces** — switch between **Habits** and **To-do** with the two
   full-width buttons pinned to the bottom of the screen.
-- ➕ Add, ✏️ edit, and 🗑️ delete habits and tasks
+- Add, edit, and delete habits and tasks
   - Tap the **leaf** on the right of a card to reveal the pencil and trash
     actions.
   - Deleting asks for **confirmation** first — no accidents.
-- 📊 **Useful daily stats** — Habits shows *Done today*, *Remaining*, and
+- **Useful daily stats** — Habits shows *Done today*, *Remaining*, and
   *Overdue*; To-do shows *Done today*, *Due today*, and *Overdue*.
-- ✅ **To-do list** — every task has a type (Chores, Schoolwork, Work, Personal,
+- **To-do list** — every task has a type (Chores, Schoolwork, Work, Personal,
   Health, Errands), an optional note, and an optional due date and time.
   - The optional **due time** marks the task overdue at that exact time; without
     one it stays calm until the end of the day.
   - Completed tasks move into a **Done today** section and can be undone.
-- 🔥 **Streak counter** on every habit, with a one-tap daily completion circle
+- **Streak counter** on every habit, with a one-tap daily completion circle
   that you can tap again to **undo** an accidental completion.
   - A one-day **grace period**: the flame shrinks to warn you after a missed day,
     and the streak only resets once a second day is missed.
-- ⏳ **Daily deadline** per habit (set when adding/editing). Each card shows a
+- **Daily deadline** per habit (set when adding/editing). Each card shows a
   live countdown to the deadline that turns peach when it's under two hours away
   (and reads "Overdue" once it passes).
-- 🗓️ **Consistency calendar** — tap the calendar icon beside the theme toggle to
+- **Consistency calendar** — tap the calendar icon beside the theme toggle to
   open a full-screen month view. Each day shows a short line: **green** when every
   habit was done that day, **amber** when only some were, and **red** when none
   were. Days before you started tracking stay blank, and months cross-slide
   smoothly as you browse.
-- 🌗 **Light / dark mode** toggle with smooth 300 ms colour transitions.
-- 🎨 Only **three hue families** — sage (primary), peach (accent), and mint
+- **Light / dark mode** toggle with smooth 300 ms colour transitions.
+- Only **three hue families** — sage (primary), peach (accent), and mint
   (calm) — plus softly tinted neutrals. Everything adjusts for each theme.
-- 🫧 Soft rounded corners, gentle shadows, and subtle background glow.
-- 📱 Fits phone screens with safe-area padding — and ships as a fully offline
+- Soft rounded corners, gentle shadows, and subtle background glow.
+- Fits phone screens with safe-area padding — and ships as a fully offline
   Android APK (see below).
-- ♿ Accessible dialogs, keyboard support (Esc to close), and reduced-motion
+- Accessible dialogs, keyboard support (Esc to close), and reduced-motion
   support.
-- 🧭 **Welcome tour & how-to guide** — a short first-run introduction walks new
+- **Welcome tour & how-to guide** — a short first-run introduction walks new
   users through habits, streaks, parts of the day, reminders and the to-do list,
   and can finish by opening the templates. A step-by-step **How to use Bloom**
   guide lives in Settings, and the welcome tour can be replayed any time.
-- ⚙️ **Settings** — tap the **Bloom logo** in the top-left to open it:
+- **Settings** — tap the **Bloom logo** in the top-left to open it:
   reminders and sounds, appearance, habit options, automatic backups, and a
   confirm-gated *Clear all habits and tasks* action.
-- 🔁 **Richer habits** — repeat **every day**, on **chosen weekdays**, or a
+- **Richer habits** — repeat **every day**, on **chosen weekdays**, or a
   flexible **N× per week** target; add a **category**; see **target vs. actual**
   progress; **archive** habits (from the edit dialog) and **drag to reorder**
   them.
-- 💡 **Insights** — weekly and monthly completion rates, perfect-day streaks, a
+- **Insights** — weekly and monthly completion rates, perfect-day streaks, a
   30-day trend chart, and per-habit totals.
-- 🔔 **Reminders** — a per-habit or default reminder time, delivered as
+- **Reminders** — a per-habit or default reminder time, delivered as
   on-device notifications (with a browser fallback on the web).
-- 🧩 **Habit templates** — a gentle template picker that adds a few habits in
+- **Habit templates** — a gentle template picker that adds a few habits in
   one tap (non-blocking — always optional).
-- 🗂️ **Automatic local backups** — a rolling set of on-device restore points
+- **Automatic local backups** — a rolling set of on-device restore points
   (once a day, plus manual), with a safety snapshot before every restore.
-- ↩️ **Undo** — deleting a habit or task shows a short undo toast; the deletion
+- **Undo** — deleting a habit or task shows a short undo toast; the deletion
   is applied once the undo window closes, and survives a reload.
-- 🕰️ **Your format** — 12- or 24-hour clock and a configurable week start
+- **Your format** — 12- or 24-hour clock and a configurable week start
   (Sunday or Monday).
-- 🧩 **Home-screen widget** *(Android)* — a quiet snapshot of today's habits
+- **Home-screen widget** *(Android)* — a quiet snapshot of today's habits
   with a progress bar and up to three habit rows.
 
 ## Settings
@@ -83,19 +86,19 @@ It groups:
   and tasks* action.
 - **Help** — the **How to use Bloom** tutorial, and **Replay** for the welcome
   tour.
-- **About** — version, the privacy summary, and links to the privacy policy,
-  terms, licence and third-party notices.
+- **About** — version, the privacy summary, and links to the privacy policy
+  and licence.
 
 Settings are stored on the device; the app never sends them anywhere.
 
 ## Tech Stack
 
-| Layer      | Technology                                   |
+| Layer | Technology |
 |------------|----------------------------------------------|
-| Backend    | Spring Boot 3.2 · Java 21 · Spring Data JPA  |
-| Database   | H2 (file-based, zero setup) · PostgreSQL-ready |
-| Frontend   | React 18 · TypeScript · Vite                 |
-| Styling    | Tailwind CSS · Framer Motion · lucide-react  |
+| Backend | Spring Boot 3.2 · Java 21 · Spring Data JPA |
+| Database | H2 (file-based, zero setup) · PostgreSQL-ready |
+| Frontend | React 18 · TypeScript · Vite |
+| Styling | Tailwind CSS · Framer Motion · lucide-react |
 
 ## Requirements
 
@@ -117,10 +120,10 @@ The simplest path — build and launch on a single port:
 ### Other scripts
 
 ```bash
-./build.sh     # build frontend + backend into one runnable JAR
-./run.sh       # serve everything at http://localhost:8080 (port 8080)
-PORT=9090 ./run.sh   # serve on a custom port
-./dev.sh       # dev mode: Vite :5173 + Spring Boot :8080 with hot reload
+./build.sh # build frontend + backend into one runnable JAR
+./run.sh # serve everything at http://localhost:8080 (port 8080)
+PORT=9090./run.sh # serve on a custom port
+./dev.sh # dev mode: Vite:5173 + Spring Boot:8080 with hot reload
 ```
 
 ## Android app
@@ -130,11 +133,11 @@ tasks stored **on the device** — no server, no internet required.
 
 ```bash
 cd frontend
-npm run build:android      # build the offline web bundle (VITE_DATA_MODE=local)
-npx cap sync android       # copy it into the Android project
+npm run build:android # build the offline web bundle (VITE_DATA_MODE=local)
+npx cap sync android # copy it into the Android project
 cd android
-./gradlew assembleRelease  # → app/build/outputs/apk/release/app-release.apk
-./gradlew bundleRelease    # → app/build/outputs/bundle/release/app-release.aab
+./gradlew assembleRelease # → app/build/outputs/apk/release/app-release.apk
+./gradlew bundleRelease # → app/build/outputs/bundle/release/app-release.aab
 ```
 
 > Building requires the Android SDK (`ANDROID_HOME`) and **JDK 17+**. The app
@@ -166,113 +169,113 @@ app) and pushes it through the tiny `BloomWidgetPlugin`. Habit reminders use
 
 ```
 habit-tracker/
-├── build.sh                 # one-shot production build
-├── run.sh                   # build (if needed) + serve single JAR
-├── dev.sh                   # two-process dev mode with hot reload
-├── .github/workflows/ci.yml # CI: frontend, backend, signed release AAB
+├── build.sh # one-shot production build
+├── run.sh # build (if needed) + serve single JAR
+├── dev.sh # two-process dev mode with hot reload
+├──.github/workflows/ci.yml # CI: frontend, backend, signed release AAB
 ├── backend/
-│   ├── mvnw                 # Maven wrapper
-│   ├── pom.xml
-│   └── src/main/java/com/habittracker/
-│       ├── HabitTrackerApplication.java
-│       └── habit/
-│           ├── Habit.java              # entity + streak logic + schedule
-│           ├── HabitRepository.java
-│           ├── HabitService.java
-│           ├── HabitController.java    # REST /api/habits · /api/v1/habits
-│           ├── CalendarController.java # REST /api/calendar
-│           ├── CalendarService.java
-│           ├── Todo.java               # to-do entity + due date/time
-│           ├── TodoRepository.java
-│           ├── TodoService.java
-│           ├── TodoController.java     # REST /api/todos · /api/v1/todos
-│           ├── AppMeta.java            # key/value app settings
-│           ├── AppMetaRepository.java
-│           ├── HabitNotFoundException.java
-│           ├── TodoNotFoundException.java
-│           └── GlobalExceptionHandler.java
-│   └── src/main/resources/
-│       ├── application.yml             # dev profile (H2, Flyway off)
-│       ├── application-prod.yml        # prod profile (Flyway on)
-│       └── db/migration/V1__baseline.sql
+│ ├── mvnw # Maven wrapper
+│ ├── pom.xml
+│ └── src/main/java/com/habittracker/
+│ ├── HabitTrackerApplication.java
+│ └── habit/
+│ ├── Habit.java # entity + streak logic + schedule
+│ ├── HabitRepository.java
+│ ├── HabitService.java
+│ ├── HabitController.java # REST /api/habits · /api/v1/habits
+│ ├── CalendarController.java # REST /api/calendar
+│ ├── CalendarService.java
+│ ├── Todo.java # to-do entity + due date/time
+│ ├── TodoRepository.java
+│ ├── TodoService.java
+│ ├── TodoController.java # REST /api/todos · /api/v1/todos
+│ ├── AppMeta.java # key/value app settings
+│ ├── AppMetaRepository.java
+│ ├── HabitNotFoundException.java
+│ ├── TodoNotFoundException.java
+│ └── GlobalExceptionHandler.java
+│ └── src/main/resources/
+│ ├── application.yml # dev profile (H2, Flyway off)
+│ ├── application-prod.yml # prod profile (Flyway on)
+│ └── db/migration/V1__baseline.sql
 └── frontend/
     ├── index.html
-    ├── tailwind.config.js              # the 3-colour palette
+    ├── tailwind.config.js # the 3-colour palette
     ├── eslint.config.js
     ├── vitest.config.ts
     └── src/
-        ├── App.tsx                     # Habits / To-do tab shell
+        ├── App.tsx # Habits / To-do tab shell
         ├── api.ts
         ├── types.ts
         ├── context/
-        │   ├── ThemeContext.tsx
-        │   └── SettingsContext.tsx
-        ├── data/                       # local stores, migrations, backups
-        │   ├── localStore.ts
-        │   ├── localTodoStore.ts
-        │   ├── settingsStore.ts
-        │   ├── backupStore.ts
-        │   ├── migrations.ts
-        │   ├── dataClient.ts
-        │   └── pendingDeletes.ts
+        │ ├── ThemeContext.tsx
+        │ └── SettingsContext.tsx
+        ├── data/ # local stores, migrations, backups
+        │ ├── localStore.ts
+        │ ├── localTodoStore.ts
+        │ ├── settingsStore.ts
+        │ ├── backupStore.ts
+        │ ├── migrations.ts
+        │ ├── dataClient.ts
+        │ └── pendingDeletes.ts
         ├── hooks/
-        │   ├── useHabits.ts
-        │   ├── useTodos.ts
-        │   └── useUndoQueue.ts
+        │ ├── useHabits.ts
+        │ ├── useTodos.ts
+        │ └── useUndoQueue.ts
         ├── lib/
-        │   ├── streak.ts               # streak + deadline logic
-        │   ├── schedule.ts             # schedules + progress
-        │   ├── insights.ts             # stats + trend
-        │   ├── todo.ts                 # categories, due labels, stats
-        │   ├── calendar.ts             # consistency calendar logic
-        │   ├── notifications.ts        # habit reminders
-        │   ├── widget.ts               # home-screen widget bridge
-        │   └── templates.ts
+        │ ├── streak.ts # streak + deadline logic
+        │ ├── schedule.ts # schedules + progress
+        │ ├── insights.ts # stats + trend
+        │ ├── todo.ts # categories, due labels, stats
+        │ ├── calendar.ts # consistency calendar logic
+        │ ├── notifications.ts # habit reminders
+        │ ├── widget.ts # home-screen widget bridge
+        │ └── templates.ts
         └── components/
             ├── HabitsView.tsx
             ├── TodosView.tsx
-            ├── SettingsView.tsx        # opened from the Bloom logo
-            ├── HabitCard.tsx           # leaf actions + streak
-            ├── TodoCard.tsx            # category chip + due time
-            ├── RowActions.tsx          # leaf → pencil + trash
-            ├── HabitForm.tsx           # add / edit habit dialog
-            ├── TodoForm.tsx            # add / edit task dialog
-            ├── TemplatePicker.tsx      # non-blocking habit templates
+            ├── SettingsView.tsx # opened from the Bloom logo
+            ├── HabitCard.tsx # leaf actions + streak
+            ├── TodoCard.tsx # category chip + due time
+            ├── RowActions.tsx # leaf → pencil + trash
+            ├── HabitForm.tsx # add / edit habit dialog
+            ├── TodoForm.tsx # add / edit task dialog
+            ├── TemplatePicker.tsx # non-blocking habit templates
             ├── InsightsView.tsx
-            ├── IntroFlow.tsx           # first-run welcome tour
-            ├── TutorialView.tsx        # "How to use Bloom" guide
-            ├── AboutView.tsx           # privacy, terms and licences
-            ├── FreezeSheet.tsx         # streak freezes sheet
-            ├── FrozenFlame.tsx         # the streak-freeze glyph
-            ├── BottomNav.tsx           # two full-width tabs
-            ├── DeleteConfirm.tsx       # confirmation dialog
+            ├── IntroFlow.tsx # first-run welcome tour
+            ├── TutorialView.tsx # "How to use Bloom" guide
+            ├── AboutView.tsx # privacy summary and licence
+            ├── FreezeSheet.tsx # streak freezes sheet
+            ├── FrozenFlame.tsx # the streak-freeze glyph
+            ├── BottomNav.tsx # two full-width tabs
+            ├── DeleteConfirm.tsx # confirmation dialog
             ├── ErrorBoundary.tsx
-            └── CalendarView.tsx        # consistency calendar overlay
+            └── CalendarView.tsx # consistency calendar overlay
 ```
 
 ## REST API
 
 Every endpoint is also available under a versioned `/api/v1/…` alias.
 
-| Method | Path                              | Description              |
+| Method | Path | Description |
 |--------|-----------------------------------|--------------------------|
-| GET    | `/api/habits`                     | List all habits          |
-| GET    | `/api/habits/{id}`                | Get one habit            |
-| POST   | `/api/habits`                     | Create a habit           |
-| PUT    | `/api/habits/{id}`                | Update a habit           |
-| DELETE | `/api/habits/{id}`                | Delete a habit           |
-| PUT    | `/api/habits/order`               | Persist a drag-to-reorder sequence `{ "ids": [...] }` |
-| POST   | `/api/habits/{id}/archive`        | Archive / restore a habit `{ "archived": true }` |
-| POST   | `/api/habits/{id}/streak/increment` | Mark done today        |
-| POST   | `/api/habits/{id}/streak/decrement` | Reset the streak       |
-| POST   | `/api/habits/{id}/streak/toggle`    | Toggle today's completion |
-| GET    | `/api/calendar`                     | When consistency tracking began |
-| GET    | `/api/todos`                     | List all tasks           |
-| GET    | `/api/todos/{id}`                | Get one task             |
-| POST   | `/api/todos`                     | Create a task            |
-| PUT    | `/api/todos/{id}`                | Update a task            |
-| DELETE | `/api/todos/{id}`                | Delete a task            |
-| POST   | `/api/todos/{id}/toggle`         | Toggle completion        |
+| GET | `/api/habits` | List all habits |
+| GET | `/api/habits/{id}` | Get one habit |
+| POST | `/api/habits` | Create a habit |
+| PUT | `/api/habits/{id}` | Update a habit |
+| DELETE | `/api/habits/{id}` | Delete a habit |
+| PUT | `/api/habits/order` | Persist a drag-to-reorder sequence `{ "ids": [...] }` |
+| POST | `/api/habits/{id}/archive` | Archive / restore a habit `{ "archived": true }` |
+| POST | `/api/habits/{id}/streak/increment` | Mark done today |
+| POST | `/api/habits/{id}/streak/decrement` | Reset the streak |
+| POST | `/api/habits/{id}/streak/toggle` | Toggle today's completion |
+| GET | `/api/calendar` | When consistency tracking began |
+| GET | `/api/todos` | List all tasks |
+| GET | `/api/todos/{id}` | Get one task |
+| POST | `/api/todos` | Create a task |
+| PUT | `/api/todos/{id}` | Update a task |
+| DELETE | `/api/todos/{id}` | Delete a task |
+| POST | `/api/todos/{id}/toggle` | Toggle completion |
 
 Example:
 
@@ -304,31 +307,32 @@ Interactive API docs: <http://localhost:8080/swagger-ui.html>
 
 ```bash
 cd frontend
-npm run lint         # ESLint
-npm run format       # Prettier
-npm run typecheck    # tsc --noEmit
-npm run test         # Vitest unit tests (schedules, insights)
+npm run lint # ESLint
+npm run format # Prettier
+npm run typecheck # tsc --noEmit
+npm run test # Vitest unit tests (schedules, insights)
 
-cd ../backend
-mvn -B verify        # build + JUnit tests
+cd../backend
+mvn -B verify # build + JUnit tests
 ```
 
 Continuous integration lives in `.github/workflows/ci.yml` (frontend lint/test/
 build, backend verify, and a signed release **AAB** job for tags). See
 `CONTRIBUTING.md` for the full checklist.
 
-## Privacy, terms & licence
+## Privacy & licence
 
-- 🔒 **Privacy** — the Android app keeps all of your data on the device and
-  sends nothing anywhere. See [PRIVACY.md](PRIVACY.md).
-- 📜 **Terms** — including an important note that Bloom is a wellbeing tool, not
-  a medical device, and that reminders are best-effort. See [TERMS.md](TERMS.md).
-- ⚖️ **Licence** — MIT. See [LICENSE](LICENSE).
-- 🧩 **Third-party notices** — the open-source projects Bloom is built on. See
-  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-- 🛡️ **Security** — how to report a vulnerability: [SECURITY.md](SECURITY.md).
+- **Privacy** — the Android app keeps all of your data on the device and sends
+  nothing anywhere. See [PRIVACY.md](PRIVACY.md).
+- **Licence** — free for personal, noncommercial use. No selling or commercial
+  redistribution. See [LICENSE](LICENSE).
+- **Not medical advice** — Bloom is a wellbeing tool, not a medical device.
+  Reminders are best-effort, so do not rely on them for anything time-critical.
+- **Third-party software** — built with React, Capacitor, Tailwind CSS, Framer
+  Motion, Lucide and Spring Boot, under their respective open-source licences.
 
-All of these are also reachable in the app from **Settings → About**.
+The privacy summary and licence are also reachable in the app from
+**Settings → About**.
 
 ## Notes
 
