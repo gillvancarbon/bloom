@@ -146,6 +146,17 @@ test('settings: reminder self-check works and the guidance switch persists', asy
   page,
   context,
 }) => {
+  // Headless Chromium on CI has no Notification constructor, so stub a
+  // granted, working one to exercise the app's own success path.
+  await page.addInitScript(() => {
+    class FakeNotification {
+      static permission = 'granted'
+      static requestPermission = () => Promise.resolve('granted')
+      constructor() {}
+    }
+    // @ts-expect-error test stub
+    window.Notification = FakeNotification
+  })
   await context.grantPermissions(['notifications'], { origin: 'http://127.0.0.1:4173' })
   await seedUser(page, { notificationsEnabled: true })
 
