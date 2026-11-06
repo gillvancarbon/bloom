@@ -3,7 +3,7 @@
  * Keep `APP_VERSION` in step with package.json and the Android versionName.
  */
 
-export const APP_VERSION = '1.3.0'
+export const APP_VERSION = '1.3.1'
 
 /** The public repository. Update this if the project ever moves. */
 export const REPO_URL = 'https://github.com/gillvancarbon/bloom'

@@ -215,7 +215,7 @@ them opted in for the whole window — removing testers resets the clock.
 cd frontend && npx cap sync android && cd android && ./gradlew assembleRelease
 
 # CI: tag a release; the workflow builds and attaches the APK
-git tag v1.3.0 && git push origin v1.3.0
+git tag v1.3.1 && git push origin v1.3.1
 ```
 
 ## Project layout

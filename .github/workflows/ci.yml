@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -77,6 +78,9 @@ jobs:
     # requests stay fast. Signing secrets are exposed via `env` because the
     # `secrets` context isn't available in `if` expressions.
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    # Publishing the release needs to write the tag's GitHub Release.
+    permissions:
+      contents: write
     env:
       KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
@@ -87,6 +91,10 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history and tags so the release notes can list the changes
+          # since the previous tag.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -121,3 +129,32 @@ jobs:
           name: bloom-release-apk
           path: frontend/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
+      - name: Publish GitHub release
+        # Only publish a tag build that was actually signed, so an unsigned
+        # APK can never take over the permanent download link.
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && env.KEYSTORE_BASE64 != '' }}
+        working-directory: frontend/android
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cp "$(ls app/build/outputs/apk/release/*.apk | head -n1)" bloom.apk
+          sha256sum bloom.apk > bloom.apk.sha256
+          SHA="$(cut -d' ' -f1 bloom.apk.sha256)"
+          PREV="$(git -C "$GITHUB_WORKSPACE" describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          if [ -n "$PREV" ]; then RANGE="$PREV..$TAG"; else RANGE="$TAG"; fi
+          CHANGES="$(git -C "$GITHUB_WORKSPACE" log --pretty='- %s' "$RANGE")"
+          cat > notes.md <<EOF
+          ## Bloom ${TAG#v} — Android
+
+          Download **bloom.apk** below and open it (allow "Install unknown apps" the first time).
+
+          **APK checksum (SHA-256):** \`$SHA\`
+
+          ### Changes
+
+          $CHANGES
+          EOF
+          gh release create "$TAG" bloom.apk bloom.apk.sha256 \
+            --title "Bloom ${TAG#v}" \
+            --notes-file notes.md
