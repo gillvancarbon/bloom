@@ -43,6 +43,7 @@ import { isCompleteForPeriod, scheduledOrCompletedToday } from '../lib/schedule'
 import {
   DAY_PERIODS,
   PERIOD_LABELS,
+  clockAdvance,
   groupByPeriod,
   periodFromTime,
   periodIndex,
@@ -209,6 +210,10 @@ export function HabitsView({
   const [slide, setSlide] = useState(1)
   const touchStart = useRef<{ x: number; y: number; at: number } | null>(null)
   const firstPeriodRender = useRef(true)
+  // "Follow the clock" should only step the view when the clock crosses into a
+  // new period — never on a manual tap, or Anytime would be unreachable.
+  const lastClockPeriod = useRef<DayPeriod>(periodFromTime(new Date()))
+  const wasFollowingClock = useRef(settings.followClock)
 
   // Commit any pending delete when leaving the screen, so a tab switch can't
   // resurrect an optimistically-hidden habit.
@@ -342,12 +347,23 @@ export function HabitsView({
   }
 
   // When "follow the clock" is on, advance the visible period as the day moves.
+  // Anytime is left alone entirely, and any period the reader picked stays put
+  // until the clock genuinely crosses into morning, afternoon or evening.
   useEffect(() => {
-    if (!settings.followClock) return
     const current = periodFromTime(now)
-    if (current === period) return
-    setSlide(periodIndex(current) > periodIndex(period) ? 1 : -1)
-    setPeriod(current)
+    if (!settings.followClock) {
+      wasFollowingClock.current = false
+      lastClockPeriod.current = current
+      return
+    }
+
+    const justEnabled = !wasFollowingClock.current
+    wasFollowingClock.current = true
+    const target = clockAdvance(period, current, lastClockPeriod.current, justEnabled)
+    lastClockPeriod.current = current
+    if (!target) return
+    setSlide(periodIndex(target) > periodIndex(period) ? 1 : -1)
+    setPeriod(target)
   }, [now, settings.followClock, period])
 
   // A swipe or tab change shouldn't leave the reader mid-scroll.

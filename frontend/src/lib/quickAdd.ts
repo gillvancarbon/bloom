@@ -13,7 +13,11 @@ import { toISODate } from './streak'
  *   times      at 5pm, 5:30pm, 17:30, at 9, noon, midnight
  *   priority   !high !medium !low (also !!! and !)
  *   category   #work (any task type)
- *   repeat     every day / daily, every week / weekly, every month / monthly
+ *   repeat     every day / daily, every week / weekly, every month / monthly,
+ *              every <weekday> (weekly, anchored to that day)
+ *
+ * It also drives the guidance layer further down this file: suggestions while
+ * you type, opt-in recommendations, and the `/help` reference.
  */
 
 export interface QuickAddResult {
@@ -162,6 +166,15 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
       return ' '
     },
   )
+  // "every monday" / "each friday" — weekly, anchored to that weekday. Only
+  // "every"/"each" is consumed, so the weekday pass below still sets the date.
+  rest = rest.replace(
+    /\s(?:every|each)\s+(?=(sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?)\b)/i,
+    () => {
+      recurrence = 'weekly'
+      return ' '
+    },
+  )
 
   // Time — "at 5pm", "5:30pm", "17:30", "at 9", "noon", "midnight"
   let dueTime: string | null = null
@@ -289,3 +302,324 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
 
   return { title, dueDate, dueTime, importance, category, recurrence }
 }
+
+// ---------------------------------------------------------------------------
+// Guidance — suggestions while typing, opt-in recommendations, and /help
+// ---------------------------------------------------------------------------
+
+export type SuggestionKind = 'date' | 'time' | 'repeat' | 'priority' | 'category' | 'command'
+
+export interface QuickSuggestion {
+  /** Chip text, e.g. "tomorrow" or "#work". */
+  label: string
+  /** Text placed in the input when the chip is tapped. */
+  insert: string
+  kind: SuggestionKind
+}
+
+/** Keep the chip row calm. */
+const SUGGESTION_LIMIT = 4
+
+const CATEGORY_LIST: TodoCategory[] = [
+  'chores',
+  'schoolwork',
+  'work',
+  'personal',
+  'health',
+  'errands',
+]
+const PRIORITY_TOKENS = ['!high', '!medium', '!low']
+const DATE_WORDS = ['today', 'tonight', 'tomorrow', 'noon', 'midnight']
+const WEEKDAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+/** Recognise a slash command in the quick-add line. */
+export function quickAddCommand(text: string): 'help' | null {
+  return text.trim().toLowerCase() === '/help' ? 'help' : null
+}
+
+/**
+ * Completions for whatever the user is partway through typing — the tail of a
+ * date word, a `#`/`!` token, a `next …`/`in …`/`every …` phrase, or `/help`.
+ * Empty when the trailing token is already complete or unrecognised.
+ */
+export function quickAddSuggestions(text: string): QuickSuggestion[] {
+  if (quickAddCommand(text)) return []
+  const cap = (list: QuickSuggestion[]) => list.slice(0, SUGGESTION_LIMIT)
+
+  const every = text.match(/(?:^|\s)(?:every|each)\s+(\w*)$/i)
+  if (every) {
+    const frag = every[1].toLowerCase()
+    return cap(
+      ['day', 'week', 'month']
+        .filter((unit) => unit.startsWith(frag) && unit !== frag)
+        .map((unit): QuickSuggestion => ({
+          label: `every ${unit}`,
+          insert: `every ${unit}`,
+          kind: 'repeat',
+        })),
+    )
+  }
+
+  const next = text.match(/(?:^|\s)next\s+(\w*)$/i)
+  if (next) {
+    const frag = next[1].toLowerCase()
+    return cap(
+      WEEKDAY_NAMES.filter((day) => day.startsWith(frag) && day !== frag).map(
+        (day): QuickSuggestion => ({
+          label: `next ${day}`,
+          insert: `next ${day}`,
+          kind: 'date',
+        }),
+      ),
+    )
+  }
+
+  const relative = text.match(/(?:^|\s)in\s+(\w*)$/i)
+  if (relative) {
+    const frag = relative[1].toLowerCase()
+    return cap(
+      ['3 days', '2 weeks']
+        .filter((phrase) => phrase.startsWith(frag))
+        .map((phrase): QuickSuggestion => ({
+          label: `in ${phrase}`,
+          insert: `in ${phrase}`,
+          kind: 'date',
+        })),
+    )
+  }
+
+  const token = text.match(/(?:^|\s)([^\s]*)$/)?.[1] ?? ''
+  if (!token) return []
+  const lower = token.toLowerCase()
+
+  if (lower.startsWith('#')) {
+    const partial = lower.slice(1)
+    return cap(
+      CATEGORY_LIST.filter((name) => name.startsWith(partial) && name !== partial).map(
+        (name): QuickSuggestion => ({ label: `#${name}`, insert: `#${name}`, kind: 'category' }),
+      ),
+    )
+  }
+  if (lower.startsWith('!')) {
+    const partial = lower.slice(1)
+    return cap(
+      PRIORITY_TOKENS.filter((p) => p.slice(1).startsWith(partial) && p.slice(1) !== partial).map(
+        (p): QuickSuggestion => ({ label: p, insert: p, kind: 'priority' }),
+      ),
+    )
+  }
+  if (lower.startsWith('/')) {
+    return '/help'.startsWith(lower) && lower !== '/help'
+      ? [{ label: '/help', insert: '/help', kind: 'command' }]
+      : []
+  }
+  if (lower.length < 2) return []
+
+  return cap(
+    [...DATE_WORDS, ...WEEKDAY_NAMES]
+      .filter((word) => word.startsWith(lower) && word !== lower)
+      .map((word): QuickSuggestion => ({ label: word, insert: word, kind: 'date' })),
+  )
+}
+
+/** Words that hint at a task type, checked against the parsed title. */
+const CATEGORY_KEYWORDS: Record<TodoCategory, string[]> = {
+  health: [
+    'gym',
+    'run',
+    'walk',
+    'workout',
+    'exercise',
+    'doctor',
+    'dentist',
+    'meds',
+    'medicine',
+    'water',
+    'sleep',
+    'stretch',
+    'yoga',
+    'swim',
+    'vitamin',
+  ],
+  work: [
+    'email',
+    'meeting',
+    'standup',
+    'report',
+    'client',
+    'invoice',
+    'deck',
+    'presentation',
+    'boss',
+    'slack',
+    'interview',
+    'deadline',
+  ],
+  schoolwork: [
+    'homework',
+    'assignment',
+    'essay',
+    'exam',
+    'study',
+    'revise',
+    'lecture',
+    'class',
+    'coursework',
+  ],
+  errands: [
+    'buy',
+    'groceries',
+    'grocery',
+    'milk',
+    'shop',
+    'shopping',
+    'bank',
+    'post',
+    'mail',
+    'pharmacy',
+    'pickup',
+    'deliver',
+  ],
+  chores: [
+    'clean',
+    'laundry',
+    'dishes',
+    'vacuum',
+    'tidy',
+    'trash',
+    'bins',
+    'dust',
+    'mop',
+    'garden',
+  ],
+  personal: [],
+}
+
+const HIGH_PRIORITY_WORDS = ['urgent', 'asap', 'critical', 'important', 'overdue', 'emergency']
+const LOW_PRIORITY_WORDS = ['maybe', 'sometime', 'someday', 'eventually', 'whenever']
+
+/**
+ * Opt-in hints for parts the sentence suggests but the parser left at their
+ * defaults. Each chip inserts its token, so the preview updates and the user
+ * learns the syntax. Never guesses when a value is already set.
+ */
+export function quickAddRecommendations(parsed: QuickAddResult): QuickSuggestion[] {
+  const words = new Set(parsed.title.toLowerCase().match(/[a-z]+/g) ?? [])
+  const out: QuickSuggestion[] = []
+
+  if (parsed.category === 'personal') {
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (category === 'personal') continue
+      if (keywords.some((keyword) => words.has(keyword))) {
+        out.push({ label: `#${category}`, insert: `#${category}`, kind: 'category' })
+        break
+      }
+    }
+  }
+
+  if (parsed.importance === 'medium') {
+    if (HIGH_PRIORITY_WORDS.some((word) => words.has(word))) {
+      out.push({ label: '!high', insert: '!high', kind: 'priority' })
+    } else if (LOW_PRIORITY_WORDS.some((word) => words.has(word))) {
+      out.push({ label: '!low', insert: '!low', kind: 'priority' })
+    }
+  }
+
+  // A time without a day is ambiguous — offer the two most likely days.
+  if (parsed.dueTime && !parsed.dueDate) {
+    out.push({ label: 'today', insert: 'today', kind: 'date' })
+    out.push({ label: 'tomorrow', insert: 'tomorrow', kind: 'date' })
+  }
+
+  return out
+}
+
+/**
+ * Put a suggestion token into the input: complete the trailing token/phrase it
+ * was built from, or append it as a new token. Keeps the spacing tidy.
+ */
+export function applyQuickSuggestion(text: string, insert: string): string {
+  const trimmed = text.replace(/\s+$/, '')
+  const lowerText = trimmed.toLowerCase()
+  const lowerInsert = insert.toLowerCase()
+
+  const max = Math.min(lowerText.length, lowerInsert.length)
+  for (let length = max; length > 0; length -= 1) {
+    const start = lowerText.length - length
+    const suffix = lowerText.slice(start)
+    if (!lowerInsert.startsWith(suffix)) continue
+    if (start > 0 && !/\s/.test(lowerText[start - 1])) continue
+    return trimmed.slice(0, start) + insert
+  }
+
+  return trimmed ? `${trimmed} ${insert}` : insert
+}
+
+export interface QuickAddHelpEntry {
+  /** The text inserted when the example is tapped. */
+  insert: string
+  /** A short, plain-language note. */
+  hint: string
+}
+
+export interface QuickAddHelpSection {
+  title: string
+  entries: QuickAddHelpEntry[]
+}
+
+/** The full quick-add reference shown by writing `/help`. */
+export const QUICK_ADD_HELP: QuickAddHelpSection[] = [
+  {
+    title: 'Dates',
+    entries: [
+      { insert: 'today', hint: 'due today' },
+      { insert: 'tonight', hint: 'today at 8pm' },
+      { insert: 'tomorrow', hint: 'due tomorrow' },
+      { insert: 'friday', hint: 'the coming Friday' },
+      { insert: 'next friday', hint: 'Friday of next week' },
+      { insert: 'in 3 days', hint: 'three days from now' },
+      { insert: 'in 2 weeks', hint: 'a fortnight from now' },
+      { insert: '10/11', hint: 'day / month, also 2026-11-10 or 10 nov' },
+    ],
+  },
+  {
+    title: 'Times',
+    entries: [
+      { insert: 'at 5pm', hint: 'five in the evening' },
+      { insert: 'at 5:30pm', hint: 'half past five' },
+      { insert: '17:30', hint: '24-hour time' },
+      { insert: 'noon', hint: 'midday' },
+      { insert: 'midnight', hint: 'the start of the day' },
+    ],
+  },
+  {
+    title: 'Priority',
+    entries: [
+      { insert: '!high', hint: 'high priority, also !!!' },
+      { insert: '!medium', hint: 'medium priority, also !!' },
+      { insert: '!low', hint: 'low priority' },
+    ],
+  },
+  {
+    title: 'Type',
+    entries: CATEGORY_LIST.map((name) => ({ insert: `#${name}`, hint: name })),
+  },
+  {
+    title: 'Repeat',
+    entries: [
+      { insert: 'every day', hint: 'repeats daily' },
+      { insert: 'every week', hint: 'repeats weekly' },
+      { insert: 'every month', hint: 'repeats monthly' },
+      { insert: 'every monday', hint: 'repeats every Monday' },
+    ],
+  },
+  {
+    title: 'Putting it together',
+    entries: [
+      { insert: 'call mum tomorrow 6pm', hint: 'title, day and time' },
+      { insert: 'file taxes #work !high', hint: 'title, type and priority' },
+      { insert: 'water plants every monday', hint: 'repeats weekly' },
+      { insert: 'standup at 9:30am', hint: 'add a day too' },
+    ],
+  },
+]

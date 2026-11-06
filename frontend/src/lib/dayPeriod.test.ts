@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { normalizeHabit } from './habit'
 import {
   asPeriod,
+  clockAdvance,
   groupByPeriod,
   periodFromDeadline,
   periodFromMinutes,
@@ -57,6 +58,30 @@ describe('navigating periods', () => {
     expect(shiftPeriod('anytime', -1)).toBe('evening')
     expect(shiftPeriod('anytime', 1)).toBe('anytime')
     expect(shiftPeriod('morning', -1)).toBe('morning')
+  })
+})
+
+describe('clockAdvance (follow the clock)', () => {
+  it('advances when the clock crosses into a new period', () => {
+    expect(clockAdvance('morning', 'afternoon', 'morning', false)).toBe('afternoon')
+    expect(clockAdvance('afternoon', 'evening', 'afternoon', false)).toBe('evening')
+  })
+
+  it('stays put while the clock is in the same period', () => {
+    expect(clockAdvance('morning', 'morning', 'morning', false)).toBeNull()
+    // The reader picked a period the clock hasn't reached yet — leave it.
+    expect(clockAdvance('evening', 'morning', 'morning', false)).toBeNull()
+  })
+
+  it('jumps to the clock the moment following is switched on', () => {
+    expect(clockAdvance('evening', 'morning', 'evening', true)).toBe('morning')
+    // ...unless the reader is already on the current period.
+    expect(clockAdvance('morning', 'morning', 'evening', true)).toBeNull()
+  })
+
+  it('never pulls the reader away from Anytime', () => {
+    expect(clockAdvance('anytime', 'morning', 'evening', false)).toBeNull()
+    expect(clockAdvance('anytime', 'evening', 'afternoon', true)).toBeNull()
   })
 })
 

@@ -222,9 +222,16 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const importInputRef = useRef<HTMLInputElement>(null)
   const soundsAvailable = soundSupported()
 
-  /** Close Settings and let the first-run welcome tour play again. */
+  /**
+   * Close Settings and let the first-run welcome tour play again. Existing
+   * users are treated as having already accepted the terms, so replaying the
+   * tour never re-triggers the first-run agreement gate.
+   */
   function replayIntro() {
-    update({ onboarded: false })
+    update({
+      onboarded: false,
+      termsAcceptedAt: settings.termsAcceptedAt ?? new Date().toISOString(),
+    })
     onClose()
   }
 
@@ -421,7 +428,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 onChange={toggleNotifications}
               />
             </Row>
-            <Row label="Task reminders" hint="Nudge me when a to-do reaches its due date or time.">
+            <Row
+              label="Task reminders"
+              hint="Nudge me when a to-do is due — and once more if it’s still open after the due date."
+            >
               <Switch
                 label="Task reminders"
                 checked={settings.taskReminders}
@@ -651,14 +661,17 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* Help */}
           <Section title="Help" Icon={BookOpen}>
-            <Row label="How to use Bloom" hint="A short tour of every screen and gesture.">
+            <Row
+              label="How to use Bloom"
+              hint="The complete guide: every screen, setting and gesture."
+            >
               <button
                 type="button"
                 onClick={() => setTutorialOpen(true)}
                 className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
               >
                 <BookOpen className="h-4 w-4" aria-hidden />
-                Open tutorial
+                Open guide
               </button>
             </Row>
             <Row label="Welcome tour" hint="Play the first-run introduction again.">

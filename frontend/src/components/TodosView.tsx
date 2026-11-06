@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Archive, ChevronDown, Plus, Search, Sparkles, Wand2, X } from 'lucide-react'
+import { Archive, ChevronDown, Lightbulb, Plus, Search, Sparkles, Wand2, X } from 'lucide-react'
 import { BrandHeader } from './BrandHeader'
 import { ThemeToggle } from './ThemeToggle'
 import { TodoCard } from './TodoCard'
@@ -24,7 +24,15 @@ import {
   todoStats,
   type TodoBucket,
 } from '../lib/todo'
-import { parseQuickAdd } from '../lib/quickAdd'
+import {
+  QUICK_ADD_HELP,
+  applyQuickSuggestion,
+  parseQuickAdd,
+  quickAddCommand,
+  quickAddRecommendations,
+  quickAddSuggestions,
+  type QuickSuggestion,
+} from '../lib/quickAdd'
 import { playCompletionSound } from '../lib/sound'
 import { clearPendingDelete, schedulePendingDelete } from '../data/pendingDeletes'
 import type { Subtask, Todo, TodoInput, TodoSort } from '../types'
@@ -57,6 +65,97 @@ const EMPTY_VIEW_TEXT: Record<TodoView, { title: string; hint: string }> = {
   all: { title: 'All clear for now', hint: 'Enjoy the breathing room.' },
 }
 
+/** A few example sentences for the primer, taken from the guide's last section. */
+const QUICK_EXAMPLES =
+  QUICK_ADD_HELP.find((section) => section.title === 'Putting it together')?.entries.slice(0, 3) ??
+  []
+
+function QuickChip({
+  label,
+  title,
+  suggested = false,
+  onClick,
+}: {
+  label: string
+  title?: string
+  suggested?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`rounded-full px-2 py-0.5 font-medium transition-opacity duration-calm hover:opacity-80 ${
+        suggested
+          ? 'border border-dashed border-sage-400 text-sage-600 dark:border-sage-500 dark:text-sage-300'
+          : 'bg-mint-100 text-sage-700 dark:bg-mint-900/50 dark:text-mint-100'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+/** The inline `/help` reference, opened by typing "/help" in the quick-add line. */
+function QuickAddHelpPanel({
+  onPick,
+  onClose,
+}: {
+  onPick: (insert: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div
+      role="region"
+      aria-label="Quick add guide"
+      className="mt-2 rounded-calm border border-line bg-raised p-3.5 shadow-calm"
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <Lightbulb className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
+          Quick add guide
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close quick add guide"
+          className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted hover:text-ink"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
+      <p className="mb-3 text-xs leading-relaxed text-muted">
+        Write a sentence and Bloom picks out the parts it understands, keeping the rest as the
+        title. Tap any example to try it.
+      </p>
+      <div className="space-y-3">
+        {QUICK_ADD_HELP.map((section) => (
+          <section key={section.title}>
+            <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              {section.title}
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {section.entries.map((entry) => (
+                <button
+                  key={`${section.title}-${entry.insert}`}
+                  type="button"
+                  onClick={() => onPick(entry.insert)}
+                  className="inline-flex items-baseline gap-1.5 rounded-calm-sm border border-line bg-surface px-2.5 py-1
+                             text-left text-xs transition-all duration-calm hover:border-sage-300"
+                >
+                  <span className="font-semibold text-ink">{entry.insert}</span>
+                  <span className="text-muted">{entry.hint}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface TodosViewProps {
   onOpenSettings: () => void
 }
@@ -74,6 +173,8 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
   const [quickText, setQuickText] = useState('')
   const [quickBusy, setQuickBusy] = useState(false)
   const [quickError, setQuickError] = useState<string | null>(null)
+  const [quickFocused, setQuickFocused] = useState(false)
+  const quickInputRef = useRef<HTMLInputElement>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [hidden, setHidden] = useState<Set<number>>(new Set())
   const undo = useUndoQueue()
@@ -119,8 +220,20 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
   const orderedOpen = sortTodos(viewTodos, settings.todoSort)
   const hasOpen = openTodos.length > 0
 
-  // Live preview of what the quick-add line understood.
-  const quickPreview = quickText.trim() ? parseQuickAdd(quickText, now) : null
+  // The quick-add guidance: a /help command, live suggestions while typing, a
+  // preview of what was understood, and opt-in recommendations for the rest.
+  const quickCommand = quickAddCommand(quickText)
+  const quickPreview = quickText.trim() && !quickCommand ? parseQuickAdd(quickText, now) : null
+  const quickSuggestions = !quickCommand && quickText.trim() ? quickAddSuggestions(quickText) : []
+  const quickRecommendations = quickPreview ? quickAddRecommendations(quickPreview) : []
+  const hasPreviewChips = Boolean(
+    quickPreview &&
+    (quickPreview.dueDate ||
+      quickPreview.recurrence !== 'none' ||
+      quickPreview.importance !== 'medium' ||
+      quickPreview.category !== 'personal'),
+  )
+  const showQuickPrimer = quickFocused && !quickText.trim() && !quickCommand
 
   async function handleCreate(input: TodoInput) {
     await create(input)
@@ -206,8 +319,26 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
     })
   }
 
+  /** Put text in the quick-add line and keep the caret at the end. */
+  function putQuickText(next: string) {
+    setQuickText(next)
+    requestAnimationFrame(() => {
+      const input = quickInputRef.current
+      if (!input) return
+      input.focus()
+      const end = input.value.length
+      input.setSelectionRange(end, end)
+    })
+  }
+
+  /** Complete the trailing token/phrase, or append the suggestion. */
+  function insertQuickSuggestion(insert: string) {
+    putQuickText(applyQuickSuggestion(quickText, insert))
+  }
+
   async function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault()
+    if (quickCommand) return
     const parsed = parseQuickAdd(quickText, now)
     if (!parsed) {
       setQuickError('Add a title for your task.')
@@ -326,12 +457,15 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
                 aria-hidden
               />
               <input
+                ref={quickInputRef}
                 value={quickText}
                 onChange={(e) => {
                   setQuickText(e.target.value)
                   if (quickError) setQuickError(null)
                 }}
-                placeholder="Try “call mum tomorrow 6pm”"
+                onFocus={() => setQuickFocused(true)}
+                onBlur={() => setQuickFocused(false)}
+                placeholder="Try “call mum tomorrow 6pm” or /help"
                 maxLength={200}
                 aria-label="Quick add a task"
                 className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-3 text-sm
@@ -341,39 +475,100 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
             </div>
             <button
               type="submit"
-              disabled={quickBusy || !quickText.trim()}
+              disabled={quickBusy || !quickText.trim() || quickCommand !== null}
               className="silicone-primary shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold
                          disabled:opacity-50"
             >
               Add
             </button>
           </div>
+
           {quickError ? (
             <p className="mt-1.5 text-xs text-peach-600 dark:text-peach-300">{quickError}</p>
-          ) : quickPreview ? (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-              {quickPreview.dueDate && (
-                <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                  {dueState(quickPreview.dueDate, quickPreview.dueTime, now).text}
-                </span>
+          ) : quickCommand === 'help' ? (
+            <QuickAddHelpPanel onPick={putQuickText} onClose={() => putQuickText('')} />
+          ) : (
+            <>
+              {quickSuggestions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-muted">
+                    {quickSuggestions.length > 1 ? 'Suggestions:' : 'Suggestion:'}
+                  </span>
+                  {quickSuggestions.map((suggestion: QuickSuggestion) => (
+                    <QuickChip
+                      key={suggestion.insert}
+                      label={suggestion.label}
+                      onClick={() => insertQuickSuggestion(suggestion.insert)}
+                    />
+                  ))}
+                </div>
               )}
-              {recurrenceLabel(quickPreview.recurrence) && (
-                <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                  {recurrenceLabel(quickPreview.recurrence)}
-                </span>
+
+              {hasPreviewChips && quickPreview && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  {quickPreview.dueDate && (
+                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+                      {dueState(quickPreview.dueDate, quickPreview.dueTime, now).text}
+                    </span>
+                  )}
+                  {recurrenceLabel(quickPreview.recurrence) && (
+                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+                      {recurrenceLabel(quickPreview.recurrence)}
+                    </span>
+                  )}
+                  {quickPreview.importance !== 'medium' && (
+                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+                      {quickPreview.importance}
+                    </span>
+                  )}
+                  {quickPreview.category !== 'personal' && (
+                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+                      {quickPreview.category}
+                    </span>
+                  )}
+                </div>
               )}
-              {quickPreview.importance !== 'medium' && (
-                <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                  {quickPreview.importance}
-                </span>
+
+              {quickRecommendations.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="inline-flex items-center gap-1 text-muted">
+                    <Lightbulb className="h-3.5 w-3.5" aria-hidden />
+                    Suggested:
+                  </span>
+                  {quickRecommendations.map((suggestion: QuickSuggestion) => (
+                    <QuickChip
+                      key={suggestion.insert}
+                      label={suggestion.label}
+                      title="Add to your task"
+                      suggested
+                      onClick={() => insertQuickSuggestion(suggestion.insert)}
+                    />
+                  ))}
+                </div>
               )}
-              {quickPreview.category !== 'personal' && (
-                <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                  {quickPreview.category}
-                </span>
+
+              {showQuickPrimer && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                  <span>Try a whole sentence:</span>
+                  {QUICK_EXAMPLES.map((example) => (
+                    <QuickChip
+                      key={example.insert}
+                      label={example.insert}
+                      title={example.hint}
+                      onClick={() => putQuickText(example.insert)}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => putQuickText('/help')}
+                    className="font-medium text-sage-600 underline-offset-2 hover:underline dark:text-sage-300"
+                  >
+                    or type /help
+                  </button>
+                </div>
               )}
-            </div>
-          ) : null}
+            </>
+          )}
         </form>
       )}
 

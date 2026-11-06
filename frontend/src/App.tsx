@@ -7,8 +7,11 @@ import { HabitsView } from './components/HabitsView'
 import { TodosView } from './components/TodosView'
 import { SettingsView } from './components/SettingsView'
 import { IntroFlow } from './components/IntroFlow'
+import { TermsGate } from './components/TermsGate'
 import { useSettings } from './context/SettingsContext'
-import { initReminderActions } from './lib/notifications'
+import { initReminderActions, syncTaskReminders } from './lib/notifications'
+import { dataClient } from './data/dataClient'
+import { onDataChanged } from './lib/dataEvents'
 
 export default function App() {
   const { settings, ready, update } = useSettings()
@@ -20,7 +23,10 @@ export default function App() {
   const settingsOpenRef = useRef(settingsOpen)
   settingsOpenRef.current = settingsOpen
 
-  const showIntro = ready && !settings.onboarded
+  // A brand-new user must accept the Terms of Use before anything else; the
+  // welcome tour follows once they do.
+  const showTerms = ready && !settings.onboarded && !settings.termsAcceptedAt
+  const showIntro = ready && !settings.onboarded && Boolean(settings.termsAcceptedAt)
 
   const finishIntro = useCallback(
     (wantsTemplates: boolean) => {
@@ -63,6 +69,34 @@ export default function App() {
     void initReminderActions()
   }, [])
 
+  // Arm task reminders from the app root — not just from the To-do screen — so
+  // an overdue task still nudges on a cold start that lands on Habits. Runs on
+  // launch, whenever settings change, on the app returning to the foreground,
+  // and after a background change (notification action, widget, import).
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+    const run = async () => {
+      try {
+        const { todos } = await dataClient.readAll()
+        if (!cancelled) await syncTaskReminders(todos, settings)
+      } catch {
+        /* store not reachable yet — the next trigger will retry */
+      }
+    }
+    void run()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void run()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    const off = onDataChanged(() => void run())
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisibility)
+      off()
+    }
+  }, [ready, settings])
+
   return (
     <div className="bg-aura relative min-h-[100dvh]">
       <motion.div
@@ -89,6 +123,7 @@ export default function App() {
         {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
       </AnimatePresence>
 
+      <AnimatePresence>{showTerms && <TermsGate />}</AnimatePresence>
       <AnimatePresence>{showIntro && <IntroFlow onFinish={finishIntro} />}</AnimatePresence>
     </div>
   )

@@ -7,16 +7,24 @@ import {
   Check,
   ChevronLeft,
   Clock,
+  Database,
+  Download,
   Flame,
   Hand,
   Layers,
   ListTodo,
+  Palette,
   Plus,
   Repeat,
+  ScrollText,
+  Search,
   Settings,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Target,
+  Upload,
+  Volume2,
 } from 'lucide-react'
 import { Portal } from './Portal'
 import { FrozenFlame } from './FrozenFlame'
@@ -43,9 +51,10 @@ interface GuideGroup {
 }
 
 /**
- * The step-by-step guide behind Settings → How to use Bloom. Written as plain
- * language so it doubles as an in-app manual: every screen and gesture the app
- * offers is described in the order a new user would meet it.
+ * The complete in-app guide behind Settings → Help → Open guide. Written in
+ * plain language so it doubles as the manual: every screen, setting and gesture
+ * the app offers is described in the order a new user would meet it. The same
+ * material is mirrored in GUIDE.md for the repository.
  */
 const GROUPS: GuideGroup[] = [
   {
@@ -59,7 +68,7 @@ const GROUPS: GuideGroup[] = [
       {
         Icon: Settings,
         title: 'Open Settings',
-        body: 'Tap the Bloom leaf in the top-left corner of either screen. Reminders, sounds, theme, backups and this guide all live there.',
+        body: 'Tap the Bloom leaf in the top-left corner of either screen. Reminders, sounds, theme, backups, this guide and About all live there.',
       },
     ],
   },
@@ -69,7 +78,12 @@ const GROUPS: GuideGroup[] = [
       {
         Icon: Plus,
         title: 'Add a habit',
-        body: 'Tap Add habit to name it, choose a part of the day, a deadline and how often it repeats. In a hurry? Tap Templates (beside Add habit) and pick a few ready-made habits.',
+        body: 'Tap Add habit to name it, choose a part of the day, set a deadline and decide how often it repeats. Give it a type and a target (for example, three times a week).',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Start from a template',
+        body: 'In a hurry? Tap Templates beside Add habit and pick a few ready-made habits — you can rename, edit or delete them later.',
       },
       {
         Icon: Check,
@@ -89,12 +103,12 @@ const GROUPS: GuideGroup[] = [
       {
         Icon: Clock,
         title: 'Plan your day',
-        body: 'Habits are grouped into Morning, Afternoon, Evening and Anytime. Tap a chip, or swipe left and right, to move between them. Each chip shows done/total and flags overdue work.',
+        body: 'Habits are grouped into Morning, Afternoon, Evening and Anytime. Tap a chip, or swipe left and right, to move between them. Each chip shows done/total and flags overdue work. Anytime is a bucket, so Follow the clock never pulls you out of it.',
       },
       {
         Icon: Hand,
         title: 'Edit, reorder and tidy',
-        body: 'Press and hold a card, then drag to reorder. Tap the leaf on a card for edit, archive and delete. Off-schedule habits — an off-day or a weekly habit already met — gather under a collapsible Not today section.',
+        body: 'Press and hold a card, then drag to reorder. Tap the leaf on a card for edit, archive and delete. Off-schedule habits — an off-day, or a weekly habit whose target is already met — gather under a collapsible Not today section.',
       },
     ],
   },
@@ -104,27 +118,37 @@ const GROUPS: GuideGroup[] = [
       {
         Icon: ListTodo,
         title: 'Add a task',
-        body: 'Give it a category and a priority, add an optional note, and set a due date and time if it matters. Tasks are ordered by due slot, with higher priority floating up.',
+        body: 'Give it a category and a priority, add an optional note, and set a due date and time if it matters. Without a time, a task stays calm until the end of its day.',
       },
       {
         Icon: Sparkles,
         title: 'Quick add',
-        body: 'Type a sentence like “call mum tomorrow 6pm” in the quick-add line. Bloom reads the date, time, priority (!high), type (#work) and repeat (every monday), and previews it before you add the task.',
+        body: 'Type a sentence like “call mum tomorrow 6pm” in the quick-add line. Bloom reads the date, time, priority (!high), type (#work) and repeat (every monday) and previews what it understood. As you type it offers suggestions to tap, and quietly recommends a type or priority it spotted — and writing /help opens the full reference with tappable examples.',
+      },
+      {
+        Icon: Search,
+        title: 'Views, sort and search',
+        body: 'Switch between Today, Upcoming, Anytime and All, sort by due date, priority, A–Z or newest, and search by title, note or checklist step.',
+      },
+      {
+        Icon: Repeat,
+        title: 'Repeats and checklists',
+        body: 'A task can repeat daily, weekly or monthly, and can hold a checklist of steps shown as “2/3 steps”. Completing a repeating task rolls it forward to its next turn instead of leaving it done.',
       },
       {
         Icon: Check,
-        title: 'Views, steps and repeats',
-        body: 'Switch between Today, Upcoming, Anytime and All, sort by due date, priority or name, and search by title or step. A task can hold a checklist and repeat daily, weekly or monthly — completing a repeating task moves it to its next turn.',
+        title: 'Finish, undo and reschedule',
+        body: 'Tap the circle to complete a task — it moves into Done today, where you can still undo it. Overdue tasks offer a one-tap “Move to today”, and deleting shows a short undo toast in case of a slip.',
       },
       {
-        Icon: ListTodo,
-        title: 'Finish and undo',
-        body: 'Tap the circle to complete a task — it moves into Done today, where you can still undo it. Overdue tasks offer a one-tap “Move to today”, and deleting shows a short undo toast in case of a slip.',
+        Icon: Bell,
+        title: 'Overdue nudges',
+        body: 'Turn on task reminders and Bloom nudges you at a task’s due moment, then once more if it is still open afterwards. Completed tasks never remind, and each due occurrence nudges at most once.',
       },
     ],
   },
   {
-    title: 'Insight and reminders',
+    title: 'Insights and calendar',
     steps: [
       {
         Icon: CalendarDays,
@@ -136,15 +160,35 @@ const GROUPS: GuideGroup[] = [
         title: 'Look back gently',
         body: 'The trend icon opens Insights: this week’s review, weekly and monthly rates, a 30-day trend, and a per-habit heatmap with milestone badges.',
       },
+    ],
+  },
+  {
+    title: 'Reminders and sounds',
+    steps: [
       {
         Icon: Bell,
         title: 'Let Bloom nudge you',
-        body: 'In Settings → Reminders, turn on daily reminders and choose a default reminder time (each habit can override it). Reminders carry Complete and Snooze buttons; a separate switch covers task reminders.',
+        body: 'In Settings → Reminders, turn on daily reminders and choose a default reminder time (each habit can override it). Reminders carry Complete and Snooze buttons, and the app asks for notification permission the first time you switch them on.',
+      },
+      {
+        Icon: Volume2,
+        title: 'Choose the sounds',
+        body: 'In Settings → Sound, pick the reminder sound from your phone’s notification sounds, and a separate completion ding (or keep it the same). Either can be silent.',
+      },
+    ],
+  },
+  {
+    title: 'Making it yours',
+    steps: [
+      {
+        Icon: Palette,
+        title: 'Appearance',
+        body: 'In Settings → Appearance, switch between the soft light and restful dark theme, choose a 12- or 24-hour clock, and set the week to start on Sunday or Monday.',
       },
       {
         Icon: Target,
-        title: 'Tune the details',
-        body: 'Follow the clock, hide completed habits, pick a sort order, choose 12/24-hour time, set your week start, and choose the reminder and completion sounds — all in Settings.',
+        title: 'Habit and task options',
+        body: 'Follow the clock advances the visible period as the day moves. Hide completed keeps finished habits out of the list. Habit and task sort orders, and the default reminder, are all here too.',
       },
     ],
   },
@@ -153,13 +197,53 @@ const GROUPS: GuideGroup[] = [
     steps: [
       {
         Icon: ShieldCheck,
-        title: 'Private, and backed up',
-        body: 'Everything is stored on your device — nothing is sent anywhere. Bloom takes a daily automatic backup you can restore, or make a fresh one any time, from Settings → Data & backups.',
+        title: 'Private, and on your device',
+        body: 'Everything is stored on your device — no account, no analytics, nothing sent to us. Uninstalling the app removes its data, so keep your own copies if it matters to you.',
       },
       {
-        Icon: Repeat,
+        Icon: Database,
+        title: 'Backups and restore',
+        body: 'Bloom takes a daily automatic backup, and you can make one on demand from Settings → Data & backups. Restore any point with one tap; a safety snapshot is taken first.',
+      },
+      {
+        Icon: Download,
+        title: 'Export and import',
+        body: 'Export a full JSON snapshot you can keep, and import one back on the same screen. Import replaces the current habits and tasks after taking a safety backup.',
+      },
+      {
+        Icon: Upload,
+        title: 'Start fresh',
+        body: 'Clear all habits and tasks resets the dataset without touching your settings or backups — useful when you want a clean slate.',
+      },
+    ],
+  },
+  {
+    title: 'Home-screen widget',
+    steps: [
+      {
+        Icon: Smartphone,
+        title: 'Today at a glance (Android)',
+        body: 'Add the Bloom widget to your home screen to see today’s habit progress and the tasks due today. Tapping a habit’s circle completes it right from the widget.',
+      },
+    ],
+  },
+  {
+    title: 'Privacy, terms and licence',
+    steps: [
+      {
+        Icon: ShieldCheck,
+        title: 'Terms accepted once',
+        body: 'A new user must agree to the Terms of Use and Privacy Policy before the app opens. The current terms are always available from Settings → About.',
+      },
+      {
+        Icon: ScrollText,
+        title: 'Licence',
+        body: 'Bloom is free for personal, noncommercial use under the PolyForm Noncommercial License 1.0.0. You may not sell it or redistribute it commercially.',
+      },
+      {
+        Icon: Sparkles,
         title: 'Still learning?',
-        body: 'You can replay the welcome tour from Settings → Help whenever you like.',
+        body: 'You can replay the welcome tour from Settings → Help whenever you like, and reopen this guide any time from the same place.',
       },
     ],
   },
@@ -226,7 +310,7 @@ export function TutorialView({ onClose }: TutorialViewProps) {
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close tutorial"
+              aria-label="Close guide"
               className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
                          hover:text-sage-500 dark:hover:text-sage-300"
             >
@@ -240,8 +324,8 @@ export function TutorialView({ onClose }: TutorialViewProps) {
                 How to use Bloom
               </h1>
               <p className="text-xs text-muted sm:text-sm">
-                <Sparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />A
-                two-minute tour of everything in the app.
+                <Sparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+                The complete guide, one step at a time.
               </p>
             </div>
           </header>

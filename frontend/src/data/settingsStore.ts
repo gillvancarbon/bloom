@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   freezeTokens: WEEKLY_FREEZES,
   lastFreezeWeek: null,
   onboarded: false,
+  termsAcceptedAt: null,
   autoBackupEnabled: true,
   lastBackupAt: null,
 }
@@ -91,6 +92,10 @@ export function normalizeSettings(raw: RawSettings | null): Settings {
       : WEEKLY_FREEZES,
     lastFreezeWeek: typeof merged.lastFreezeWeek === 'string' ? merged.lastFreezeWeek : null,
     onboarded: Boolean(merged.onboarded),
+    termsAcceptedAt:
+      typeof merged.termsAcceptedAt === 'string' && merged.termsAcceptedAt
+        ? merged.termsAcceptedAt
+        : null,
     autoBackupEnabled: merged.autoBackupEnabled !== false,
     lastBackupAt: typeof merged.lastBackupAt === 'string' ? merged.lastBackupAt : null,
   }

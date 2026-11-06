@@ -6,10 +6,18 @@ import {
 } from '@capacitor/local-notifications'
 import type { Habit, Settings, Todo } from '../types'
 import { reminderBody, reminderClock } from './reminder'
-import { taskReminderAt, taskReminderBody } from './taskReminders'
+import {
+  OVERDUE_NUDGE_DELAY_MS,
+  taskOverdue,
+  taskOverdueBody,
+  taskOverdueKey,
+  taskReminderAt,
+  taskReminderBody,
+} from './taskReminders'
 import { getReminderChannelId } from './sound'
 import { localStore } from '../data/localStore'
 import { localTodoStore } from '../data/localTodoStore'
+import { nudgeStore } from '../data/nudgeStore'
 import { settingsStore } from '../data/settingsStore'
 import { notifyDataChanged } from './dataEvents'
 
@@ -43,12 +51,15 @@ const HABIT_MAX_ID = 9_000_000
 /** Task notification ids live in a separate range so the two never collide. */
 const TODO_BASE_ID = 10_000_000
 const TODO_MAX_ID = 20_000_000
+/** Overdue nudges sit in their own slice so they can't clash with due-time ones. */
+const TODO_OVERDUE_OFFSET = 1_000_000
 /** Days of one-shot alarms kept armed ahead of time (a full week, plus today). */
 const HORIZON_DAYS = 8
 /** The Android action set (Complete / Snooze) shared by every reminder. */
 const ACTION_TYPE_ID = 'BLOOM_REMINDER'
 
 const webTimers = new Map<number, ReturnType<typeof setTimeout>>()
+const webTaskTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
 export function notificationsNative(): boolean {
   return Capacitor.isNativePlatform()
@@ -259,41 +270,172 @@ export async function syncHabitReminders(habits: Habit[], settings: Settings): P
 }
 
 /**
- * One-shot reminders for open tasks at their due moment. Reuses the same
- * channel and action set as habit reminders. Native only — a browser can't
+ * One-shot reminders for open tasks: one at the due moment, and — if that
+ * moment passes with the task still open — a single follow-up saying it's
+ * overdue. Completed and archived tasks are skipped entirely, so finishing a
+ * task (or ticking it from the notification itself) also cancels any that were
+ * already queued, because the whole range is rebuilt on every sync. Reuses the
+ * same channel and action set as habit reminders. Native only — a browser can't
  * deliver a scheduled notification from a closed tab.
  */
-export async function syncTaskReminders(todos: Todo[], settings: Settings): Promise<void> {
-  if (!notificationsNative()) return
+/** The notification id for one task's overdue nudge. */
+function overdueNudgeId(todoId: number): number {
+  return TODO_BASE_ID + TODO_OVERDUE_OFFSET + todoId
+}
 
-  await cancelRange(TODO_BASE_ID, TODO_MAX_ID)
+/**
+ * Browser fallback for task reminders. It only runs while the tab is open —
+ * a closed tab can't deliver anything — so future due moments become timers,
+ * and a task that is already overdue pops once per due occurrence, remembered
+ * in the same ledger the native path uses.
+ */
+async function syncWebTaskReminders(todos: Todo[], settings: Settings): Promise<void> {
+  for (const timer of webTaskTimers.values()) clearTimeout(timer)
+  webTaskTimers.clear()
   if (!settings.notificationsEnabled || !settings.taskReminders) return
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+
+  const now = new Date()
+  const alreadyNudged = await nudgeStore.list()
+  const overdueKeys: string[] = []
+
+  for (const todo of todos) {
+    if (todo.done || todo.archived) continue
+
+    const at = taskReminderAt(todo, now)
+    if (at) {
+      const delay = Math.min(at.getTime() - now.getTime(), 2_147_000_000)
+      const timer = setTimeout(() => {
+        try {
+          new Notification('Bloom', {
+            body: taskReminderBody(todo, settings.timeFormat),
+            tag: `bloom-todo-${todo.id}`,
+          })
+        } catch {
+          /* ignore */
+        }
+      }, delay)
+      webTaskTimers.set(todo.id, timer)
+      continue
+    }
+
+    if (!taskOverdue(todo, now)) continue
+    const key = taskOverdueKey(todo)
+    if (!key || alreadyNudged.has(key)) continue
+    overdueKeys.push(key)
+    try {
+      new Notification('Bloom', {
+        body: taskOverdueBody(todo, settings.timeFormat),
+        tag: `bloom-todo-overdue-${todo.id}`,
+      })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (overdueKeys.length) await nudgeStore.mark(overdueKeys)
+}
+
+async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<void> {
+  if (!notificationsNative()) {
+    await syncWebTaskReminders(todos, settings)
+    return
+  }
+
+  // Due-time reminders are always rebuilt from scratch.
+  const dueMaxId = TODO_BASE_ID + TODO_OVERDUE_OFFSET - 1
+  await cancelRange(TODO_BASE_ID, dueMaxId)
+  if (!settings.notificationsEnabled || !settings.taskReminders) {
+    // Reminders switched off: clear any overdue nudges still waiting too.
+    await cancelRange(TODO_BASE_ID + TODO_OVERDUE_OFFSET, TODO_MAX_ID)
+    return
+  }
 
   const channelId = await getReminderChannelId(settings.reminderSound)
   const now = new Date()
   const notifications: LocalNotificationSchema[] = []
+  const overdueKeys: string[] = []
+  const alreadyNudged = await nudgeStore.list()
+  /** Overdue nudges that should survive this sync (already sent or queued). */
+  const keepOverdue = new Set<number>()
+
   for (const todo of todos) {
     const at = taskReminderAt(todo, now)
-    if (!at) continue
+    if (at) {
+      notifications.push({
+        id: TODO_BASE_ID + todo.id,
+        title: 'Bloom',
+        body: taskReminderBody(todo, settings.timeFormat),
+        channelId,
+        smallIcon: 'ic_stat_bloom',
+        ...(settings.reminderSound === 'bloom_chime' ? { sound: 'bloom_chime' } : {}),
+        autoCancel: true,
+        actionTypeId: ACTION_TYPE_ID,
+        extra: { bloomKind: 'todo', bloomId: todo.id },
+        schedule: { at, allowWhileIdle: true },
+      })
+      continue
+    }
+
+    // Already due and still open? Nudge once per due occurrence.
+    if (!taskOverdue(todo, now)) continue
+    const key = taskOverdueKey(todo)
+    if (!key) continue
+    if (alreadyNudged.has(key)) {
+      // This occurrence has been nudged; leave any queued copy in place so a
+      // quick re-sync can't cancel it a moment before it's delivered.
+      keepOverdue.add(overdueNudgeId(todo.id))
+      continue
+    }
+    overdueKeys.push(key)
     notifications.push({
-      id: TODO_BASE_ID + todo.id,
+      id: overdueNudgeId(todo.id),
       title: 'Bloom',
-      body: taskReminderBody(todo, settings.timeFormat),
+      body: taskOverdueBody(todo, settings.timeFormat),
       channelId,
       smallIcon: 'ic_stat_bloom',
       ...(settings.reminderSound === 'bloom_chime' ? { sound: 'bloom_chime' } : {}),
       autoCancel: true,
       actionTypeId: ACTION_TYPE_ID,
       extra: { bloomKind: 'todo', bloomId: todo.id },
-      schedule: { at, allowWhileIdle: true },
+      schedule: { at: new Date(now.getTime() + OVERDUE_NUDGE_DELAY_MS), allowWhileIdle: true },
     })
   }
+
+  // Drop overdue nudges that no longer apply: task done, archived or deleted,
+  // or its due date moved (which earns a fresh one below).
+  try {
+    const pending = await LocalNotifications.getPending()
+    const stale = pending.notifications
+      .filter((n) => n.id > dueMaxId && n.id <= TODO_MAX_ID && !keepOverdue.has(n.id))
+      .map((n) => ({ id: n.id }))
+    if (stale.length) await LocalNotifications.cancel({ notifications: stale })
+  } catch {
+    /* ignore */
+  }
+
   if (!notifications.length) return
   try {
     await LocalNotifications.schedule({ notifications })
+    // Only remember what we actually managed to queue.
+    await nudgeStore.mark(overdueKeys)
   } catch {
     /* device rejected scheduling — keep the app usable */
   }
+}
+
+/**
+ * Serialise task reminder syncs. The app root and the To-do screen can both ask
+ * for a rebuild (and a foreground event can overlap one), so queueing them
+ * keeps a cancel/reschedule pair from interleaving with the next.
+ */
+let taskSyncChain: Promise<void> = Promise.resolve()
+
+export function syncTaskReminders(todos: Todo[], settings: Settings): Promise<void> {
+  taskSyncChain = taskSyncChain
+    .then(() => runTaskReminderSync(todos, settings))
+    .catch(() => undefined)
+  return taskSyncChain
 }
 
 /**

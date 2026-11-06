@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-11-06
+
 ### Added
 
 - **To-do views** — the To-do screen groups tasks into **Today** (including
@@ -27,6 +29,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   safety backup.
 - **Task widget section** — the Android home-screen widget now also shows the
   tasks due today.
+- **Overdue nudges** — a task that is still open after its due moment reminds
+  you once more that it's overdue. Completed and archived tasks stay quiet, and
+  a task is nudged at most once per due occurrence.
+- **Terms on first run** — a new user must read and accept the Terms of Use and
+  Privacy Policy before the app opens; declining closes the app. The terms stay
+  reachable from **Settings → About**.
+- **Full user guide** — the in-app guide now walks through every screen, setting
+  and gesture, and the same material is mirrored in [GUIDE.md](GUIDE.md) for new
+  users.
+- **Guided quick add** — the task quick-add line now suggests completions as you
+  type, quietly recommends a type or priority it spotted (tap to add), and a
+  `/help` command opens the full reference with tappable examples.
+- **`every <weekday>` repeats** — “water plants every monday” now sets a weekly
+  repeat anchored to that day, as the docs always claimed.
+
+### Fixed
+
+- **Follow the clock** — with it on, **Anytime** is now always reachable and
+  stays put, since it is a bucket rather than a time of day. Any other period
+  you pick also stays until the clock genuinely crosses into morning, afternoon
+  or evening (and previously a tap bounced straight back).
 
 ## [1.2.4] — 2026-11-05
 

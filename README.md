@@ -6,7 +6,8 @@ streaks, keep a gentle task list, and switch between a soft light theme and a
 restful dark theme.
 
 **[Download the Android app](https://github.com/gillvancarbon/bloom/releases/latest/download/bloom.apk)** —
-free for personal, noncommercial use.
+free for personal, noncommercial use. New here? Read the
+**[full user guide](GUIDE.md)**.
 
 ## Features
 
@@ -28,10 +29,15 @@ free for personal, noncommercial use.
     A–Z or newest.
   - **Quick add** understands plain sentences — “call mum tomorrow 6pm” sets the
     date and time, `!high` the priority, `#work` the type and `every monday` a
-    repeat — and previews what it read before you add it.
+    repeat — and previews what it read before you add it. It suggests
+    completions as you type, recommends a type or priority it spotted, and a
+    `/help` command opens the full reference with tappable examples.
   - **Search** by title, note or step. **Repeating** tasks roll forward when
     completed. **Checklists** track steps as `2/3 steps`. Overdue tasks offer a
     one-tap **Move to today**.
+  - **Overdue nudges** — when a task is still open past its due moment, Bloom
+    reminds you once more that it's overdue. Completed tasks never remind, and
+    each due occurrence nudges at most once.
   - Completed tasks move into a **Done today** section and can be undone.
 - **Streak counter** on every habit, with a one-tap daily completion circle
   that you can tap again to **undo** an accidental completion.
@@ -84,22 +90,24 @@ free for personal, noncommercial use.
 Open Settings by tapping the **Bloom logo** at the top-left of either screen.
 It groups:
 
-- **Reminders** — daily reminders and task reminders on/off, and a default
-  reminder time (timed to each habit's own deadline).
+- **Reminders** — daily reminders and task reminders on/off (tasks nudge at
+  their due moment and again, once, if still open), and a default reminder time
+  (timed to each habit's own deadline).
 - **Sound** — the reminder sound and the completion ding, chosen from the
   phone's notification sounds.
 - **Appearance** — light / dark theme, 12/24-hour clock, and week start
   (Sunday or Monday).
 - **Habits** — follow the clock, and hide completed habits.
 - **Data & backups** — automatic backups (with the last backup time, a
-  *Back up now* button and restore points) and a confirm-gated *Clear all habits
-  and tasks* action.
-- **Help** — the **How to use Bloom** tutorial, and **Replay** for the welcome
-  tour.
-- **About** — version, the privacy summary, and links to the privacy policy
-  and licence.
+  *Back up now* button and restore points), JSON export and import, and a
+  confirm-gated *Clear all habits and tasks* action.
+- **Help** — the **How to use Bloom** guide (the complete manual), and
+  **Replay** for the welcome tour.
+- **About** — version, the privacy summary, terms of use, the full guide, and
+  links to the privacy policy and licence.
 
-Settings are stored on the device; the app never sends them anywhere.
+Settings are stored on the device; the app never sends them anywhere. A new user
+must accept the [Terms of use](#terms-of-use) before the app opens.
 
 ## Tech Stack
 
@@ -147,14 +155,13 @@ npm run build:android # build the offline web bundle (VITE_DATA_MODE=local)
 npx cap sync android # copy it into the Android project
 cd android
 ./gradlew assembleRelease # → app/build/outputs/apk/release/app-release.apk
-./gradlew bundleRelease # → app/build/outputs/bundle/release/app-release.aab
 ```
 
 > Building requires the Android SDK (`ANDROID_HOME`) and **JDK 17+**. The app
 > targets **API 36** (Android 16) with a minimum of **API 23**.
 > The release build is signed with `android/bloom-release.jks` (config in
 > `android/keystore.properties`) so updates install over the previous version.
-> For Google Play, upload the **AAB** and let Play App Signing manage the key.
+> Bloom ships as a signed **APK**.
 
 Install on a phone: allow "Install unknown apps" for your file manager/browser,
 copy the APK over, then tap it. Note: the web build talks to Spring Boot
@@ -179,10 +186,11 @@ app) and pushes it through the tiny `BloomWidgetPlugin`. Habit reminders use
 
 ```
 habit-tracker/
+├── GUIDE.md # full user guide for new users
 ├── build.sh # one-shot production build
 ├── run.sh # build (if needed) + serve single JAR
 ├── dev.sh # two-process dev mode with hot reload
-├──.github/workflows/ci.yml # CI: frontend, backend, signed release AAB
+├──.github/workflows/ci.yml # CI: frontend, backend, signed release APK
 ├── backend/
 │ ├── mvnw # Maven wrapper
 │ ├── pom.xml
@@ -227,6 +235,7 @@ habit-tracker/
         │ ├── backupStore.ts
         │ ├── migrations.ts
         │ ├── dataClient.ts
+        │ ├── nudgeStore.ts # overdue-nudge ledger
         │ └── pendingDeletes.ts
         ├── hooks/
         │ ├── useHabits.ts
@@ -238,10 +247,12 @@ habit-tracker/
         │ ├── insights.ts # stats + trend
         │ ├── todo.ts # categories, due labels, stats
         │ ├── calendar.ts # consistency calendar logic
-        │ ├── notifications.ts # habit reminders
+        │ ├── notifications.ts # habit + task reminders
         │ ├── widget.ts # home-screen widget bridge
         │ ├── quickAdd.ts # natural-language task capture
         │ ├── export.ts # JSON export/import
+        │ ├── legal.ts # terms of use shown to new users
+        │ ├── appControl.ts # close the app when terms are declined
         │ └── templates.ts
         └── components/
             ├── HabitsView.tsx
@@ -254,9 +265,10 @@ habit-tracker/
             ├── TodoForm.tsx # add / edit task dialog
             ├── TemplatePicker.tsx # non-blocking habit templates
             ├── InsightsView.tsx
+            ├── TermsGate.tsx # terms agreement required on first run
             ├── IntroFlow.tsx # first-run welcome tour
-            ├── TutorialView.tsx # "How to use Bloom" guide
-            ├── AboutView.tsx # privacy summary and licence
+            ├── TutorialView.tsx # "How to use Bloom" full guide
+            ├── AboutView.tsx # privacy summary, terms and licence
             ├── FreezeSheet.tsx # streak freezes sheet
             ├── FrozenFlame.tsx # the streak-freeze glyph
             ├── BottomNav.tsx # two full-width tabs
@@ -329,8 +341,37 @@ mvn -B verify # build + JUnit tests
 ```
 
 Continuous integration lives in `.github/workflows/ci.yml` (frontend lint/test/
-build, backend verify, and a signed release **AAB** job for tags). See
+build, backend verify, and a signed release **APK** job for tags). See
 `CONTRIBUTING.md` for the full checklist.
+
+## Terms of use
+
+A new user must agree to these terms before the app opens. If they do not tick
+the box, the app closes. In short: free for personal, noncommercial use · not a
+medical device · your data stays on your device · provided “as is”.
+
+1. **Acceptance.** By ticking the box and continuing, you agree to these terms
+   and to the [Privacy Policy](PRIVACY.md). If you do not agree, the app closes
+   and cannot be used. You must be old enough to enter this agreement where you
+   live.
+2. **Licence.** Bloom is released under the PolyForm Noncommercial License 1.0.0
+   ([LICENSE](LICENSE)): free for personal, noncommercial use. You may not sell
+   it, charge for it, or redistribute it commercially.
+3. **Not medical advice.** Bloom is a wellbeing and productivity tool, not a
+   medical device, and it does not provide medical, mental-health or
+   professional advice. Reminders are best-effort and may be delayed or missed.
+   Do not rely on Bloom for anything time-critical or safety-related.
+4. **Your data.** Habits, tasks, settings and backups are kept on your device.
+   You are responsible for your own data; uninstalling the app or clearing its
+   data removes everything, so keep your own copies.
+5. **Provided “as is”.** Bloom comes with no warranties, express or implied. To
+   the fullest extent permitted by law, the authors are not liable for any loss
+   or damage arising from its use.
+6. **Changes.** These terms may be updated over time; the current version always
+   lives in this repository, and continued use means you accept the update.
+
+The same terms are shown in the app on first run and can be reopened from
+**Settings → About**.
 
 ## Privacy & licence
 

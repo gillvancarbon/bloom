@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Portal } from './Portal'
 import { APP_VERSION, LINKS } from '../lib/appInfo'
+import { TERMS_SUMMARY, TERMS_UPDATED, TERMS_VERSION } from '../lib/legal'
 
 interface AboutViewProps {
   onClose: () => void
@@ -127,12 +128,24 @@ export function AboutView({ onClose }: AboutViewProps) {
             />
           </Card>
 
-          <Card Icon={ScrollText} title="Terms & health">
+          <Card Icon={ScrollText} title="Terms of use">
+            <p>
+              A new user must agree to these terms before Bloom opens. In short: {TERMS_SUMMARY}
+            </p>
             <p>
               Bloom is a wellbeing tool, <strong>not a medical device</strong>, and its reminders
               are best-effort. It is provided “as is”, without warranty. Keep your own backups —
               uninstalling the app removes its data.
             </p>
+            <p className="text-xs text-muted">
+              Terms version {TERMS_VERSION} · updated {TERMS_UPDATED}
+            </p>
+            <ExternalLinkRow href={LINKS.terms} label="Read the terms" hint="The full agreement" />
+            <ExternalLinkRow
+              href={LINKS.guide}
+              label="Full guide"
+              hint="The complete manual for new users"
+            />
           </Card>
 
           <Card Icon={Github} title="Licence">

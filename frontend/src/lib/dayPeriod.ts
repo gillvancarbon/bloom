@@ -23,6 +23,26 @@ export function periodFromTime(date: Date): DayPeriod {
   return periodFromMinutes(date.getHours() * 60 + date.getMinutes())
 }
 
+/**
+ * The period "follow the clock" should switch to, or null to stay put.
+ *
+ * Anytime sits outside the clock — it is a bucket, not a time of day — so a
+ * reader deliberately viewing it is never pulled away, not even when the clock
+ * crosses a boundary. Otherwise the view advances only when the clock enters a
+ * new period (or the moment following is switched on), and never re-selects the
+ * period already on screen.
+ */
+export function clockAdvance(
+  viewed: DayPeriod,
+  clock: DayPeriod,
+  lastClock: DayPeriod,
+  justEnabled: boolean,
+): DayPeriod | null {
+  if (viewed === 'anytime') return null
+  if (!justEnabled && clock === lastClock) return null
+  return clock === viewed ? null : clock
+}
+
 /** The period an older habit falls back to, based on its deadline. */
 export function periodFromDeadline(deadline: string): DayPeriod {
   return periodFromMinutes(minutesOfDay(deadline))

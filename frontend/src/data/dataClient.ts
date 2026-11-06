@@ -2,6 +2,7 @@ import { Preferences } from '@capacitor/preferences'
 import { api } from '../api'
 import { localStore } from './localStore'
 import { localTodoStore } from './localTodoStore'
+import { nudgeStore } from './nudgeStore'
 import type { Habit, Todo } from '../types'
 
 /**
@@ -18,6 +19,8 @@ async function clearLocal(): Promise<void> {
   for (const key of DATA_KEYS) {
     await Preferences.remove({ key })
   }
+  // The overdue-nudge ledger keys off task ids, so it must not outlive them.
+  await nudgeStore.clear()
 }
 
 async function clearRemote(): Promise<void> {
@@ -47,6 +50,8 @@ export const dataClient = {
    * the server copy first and re-creates each record.
    */
   async importAll(bundle: { habits: Habit[]; todos: Todo[] }): Promise<void> {
+    // Imported records may reuse ids, so start the nudge ledger fresh.
+    await nudgeStore.clear()
     if (localMode) {
       await Promise.all([
         localStore.replaceAll(bundle.habits),

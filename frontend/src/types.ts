@@ -163,6 +163,8 @@ export interface Settings {
   lastFreezeWeek: string | null
   /** True once the first-run onboarding has been completed or skipped. */
   onboarded: boolean
+  /** When a new user accepted the Terms of Use, or null if not yet accepted. */
+  termsAcceptedAt: string | null
   autoBackupEnabled: boolean
   lastBackupAt: string | null
 }

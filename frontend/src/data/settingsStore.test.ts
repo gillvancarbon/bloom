@@ -41,4 +41,13 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings(null).taskReminders).toBe(true)
     expect(normalizeSettings({ taskReminders: false }).taskReminders).toBe(false)
   })
+
+  it('only counts a real timestamp as accepted terms', () => {
+    expect(normalizeSettings(null).termsAcceptedAt).toBeNull()
+    expect(normalizeSettings({ termsAcceptedAt: '' }).termsAcceptedAt).toBeNull()
+    expect(normalizeSettings({ termsAcceptedAt: 42 as never }).termsAcceptedAt).toBeNull()
+    expect(normalizeSettings({ termsAcceptedAt: '2026-11-06T09:00:00.000Z' }).termsAcceptedAt).toBe(
+      '2026-11-06T09:00:00.000Z',
+    )
+  })
 })
