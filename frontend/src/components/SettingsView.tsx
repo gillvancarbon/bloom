@@ -4,15 +4,20 @@ import { Portal } from './Portal'
 import { Segmented } from './Segmented'
 import { DeleteConfirm } from './DeleteConfirm'
 import { useSettings } from '../context/SettingsContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTheme } from '../context/ThemeContext'
 import { backupStore, type Backup } from '../data/backupStore'
 import { dataClient } from '../data/dataClient'
 import { downloadFile, parseBundle, toJson, type ParsedBundle } from '../lib/export'
+import { buildDiagnostics, diagnosticsToJson } from '../lib/diagnostics'
+import { Capacitor } from '@capacitor/core'
 import { notifyDataChanged } from '../lib/dataEvents'
 import {
   checkNotificationPermission,
   notificationsNative,
+  reminderHorizonDate,
   requestNotificationPermission,
+  sendTestNotification,
 } from '../lib/notifications'
 import {
   applyReminderSound,
@@ -38,6 +43,7 @@ import {
   Upload,
   Volume2,
   Clock,
+  ListChecks,
 } from 'lucide-react'
 import type { CompletionSound, TimeFormat, WeekStart } from '../types'
 
@@ -206,8 +212,9 @@ function SoundSheet({
 /* ── Screen ────────────────────────────────────────────────────────── */
 
 export function SettingsView({ onClose }: SettingsViewProps) {
-  const { settings, update } = useSettings()
+  const { settings, update, replace } = useSettings()
   const { theme, setTheme } = useTheme()
+  const trapRef = useFocusTrap<HTMLElement>()
   const [backups, setBackups] = useState<Backup[]>([])
   const [permission, setPermission] = useState<boolean | null>(null)
   const [confirm, setConfirm] = useState<'clear' | Backup | null>(null)
@@ -219,6 +226,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const [exporting, setExporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [pendingImport, setPendingImport] = useState<ParsedBundle | null>(null)
+  const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'sent' | 'blocked'>('idle')
   const importInputRef = useRef<HTMLInputElement>(null)
   const soundsAvailable = soundSupported()
 
@@ -264,16 +272,62 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     }
   }
 
+  /** Fire a one-off notification so a user can prove reminders reach them. */
+  async function testNotification() {
+    setTestStatus('sending')
+    let granted = permission === true
+    if (!granted) {
+      granted = await requestNotificationPermission()
+      setPermission(granted)
+      if (granted) update({ notificationsEnabled: true })
+    }
+    const sent = granted && (await sendTestNotification())
+    setTestStatus(sent ? 'sent' : 'blocked')
+  }
+
   /** Download everything the user owns as a JSON snapshot. */
   async function exportData() {
     setExporting(true)
     try {
       const { habits, todos } = await dataClient.readAll()
       const stamp = new Date().toISOString().slice(0, 10)
-      downloadFile(`bloom-${stamp}.json`, 'application/json', toJson(habits, todos))
+      downloadFile(
+        `bloom-${stamp}.json`,
+        'application/json',
+        toJson(habits, todos, new Date(), settings),
+      )
     } finally {
       setExporting(false)
     }
+  }
+
+  /** Download a privacy-safe snapshot for bug reports: versions and counts only. */
+  async function exportDiagnostics() {
+    const { habits, todos } = await dataClient.readAll()
+    let permission = 'unsupported'
+    if (notificationsNative()) {
+      permission = (await checkNotificationPermission()) ? 'granted' : 'denied'
+    } else if (typeof Notification !== 'undefined') {
+      permission = Notification.permission
+    }
+    const diagnostics = buildDiagnostics(
+      {
+        dataMode: dataClient.isLocal ? 'local' : 'server',
+        habitCount: habits.length,
+        todoCount: todos.length,
+        nativeNotifications: notificationsNative(),
+        remindersEnabled: settings.notificationsEnabled,
+        notificationPermission: permission,
+      },
+      undefined,
+      { platform: Capacitor.getPlatform() },
+    )
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadFile(
+      `bloom-diagnostics-${stamp}.json`,
+      'application/json',
+      diagnosticsToJson(diagnostics),
+    )
   }
 
   /** Read a chosen file, then ask before replacing anything. */
@@ -295,6 +349,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     if (!pendingImport) return
     await backupStore.create('before import')
     await dataClient.importAll(pendingImport)
+    // Restore preferences too when the snapshot carried them.
+    if (pendingImport.settings) replace(pendingImport.settings)
     setBackups(await backupStore.list())
     setPendingImport(null)
     notifyDataChanged()
@@ -335,6 +391,12 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const lastBackup = settings.lastBackupAt
     ? new Date(settings.lastBackupAt).toLocaleString()
     : 'No backups yet'
+
+  const reminderHorizon = reminderHorizonDate().toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 
   const reminderOptions: SoundOption[] = sounds.length
     ? sounds
@@ -379,6 +441,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       >
         <motion.section
+          ref={trapRef}
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.16, ease: 'easeOut' }}
@@ -438,6 +501,45 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 onChange={(v) => update({ taskReminders: v })}
               />
             </Row>
+            <Row
+              label="Test reminders"
+              hint="Send one now to check permissions and the chosen sound."
+            >
+              <button
+                type="button"
+                onClick={() => void testNotification()}
+                disabled={testStatus === 'sending'}
+                className="silicone rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                {testStatus === 'sending' ? 'Sending…' : 'Send test'}
+              </button>
+            </Row>
+            {testStatus === 'sent' && (
+              <p className="rounded-calm-sm bg-mint-100 px-3 py-2 text-sm text-sage-700 dark:bg-mint-900/40 dark:text-mint-100">
+                Test sent. It should arrive in a few seconds.
+              </p>
+            )}
+            {testStatus === 'blocked' && (
+              <p className="rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+                Notifications are blocked. Allow them for Bloom in your system settings, then try
+                again.
+              </p>
+            )}
+            <div className="rounded-calm-sm border border-line bg-surface px-3 py-2.5">
+              <p className="text-xs leading-relaxed text-muted">
+                {settings.notificationsEnabled
+                  ? notificationsNative()
+                    ? `Reminders are queued through ${reminderHorizon}. Bloom re-arms them each time it opens.`
+                    : 'Reminders only fire while this tab stays open — browsers cannot notify a closed tab.'
+                  : 'Turn reminders on to start the schedule.'}
+              </p>
+              {notificationsNative() && (
+                <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                  Android may delay background reminders in battery-saver mode. If they go quiet,
+                  allow unrestricted battery use for Bloom in system settings.
+                </p>
+              )}
+            </div>
             <Row
               label="Default reminder"
               hint="New habits start with this, timed to their own deadline."
@@ -570,6 +672,20 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             </Row>
           </Section>
 
+          {/* Tasks */}
+          <Section title="Tasks" Icon={ListChecks}>
+            <Row
+              label="Quick add guidance"
+              hint="Show suggestions, recommendations and examples as you type. Type /help at any time for the full reference."
+            >
+              <Switch
+                label="Quick add guidance"
+                checked={settings.quickAddGuidance}
+                onChange={(v) => update({ quickAddGuidance: v })}
+              />
+            </Row>
+          </Section>
+
           {/* Data + backups */}
           <Section title="Data & backups" Icon={Database}>
             <Row label="Automatic backups" hint="Snapshots your data on this device once a day.">
@@ -687,6 +803,19 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* About */}
           <Section title="About" Icon={Info}>
+            <Row
+              label="Diagnostics"
+              hint="Download environment details and counts for a bug report — no titles or notes."
+            >
+              <button
+                type="button"
+                onClick={() => void exportDiagnostics()}
+                className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Download
+              </button>
+            </Row>
             <Row label="About Bloom" hint={`Version ${APP_VERSION} · privacy, terms and licences.`}>
               <button
                 type="button"

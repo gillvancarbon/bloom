@@ -27,6 +27,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { Portal } from './Portal'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { FrozenFlame } from './FrozenFlame'
 
 interface TutorialViewProps {
@@ -168,7 +169,7 @@ const GROUPS: GuideGroup[] = [
       {
         Icon: Bell,
         title: 'Let Bloom nudge you',
-        body: 'In Settings → Reminders, turn on daily reminders and choose a default reminder time (each habit can override it). Reminders carry Complete and Snooze buttons, and the app asks for notification permission the first time you switch them on.',
+        body: 'In Settings → Reminders, turn on daily reminders and choose a default reminder time (each habit can override it). Reminders carry Complete and Snooze actions (10 minutes, 1 hour or until tomorrow), and the app asks for notification permission the first time you switch them on.',
       },
       {
         Icon: Volume2,
@@ -280,6 +281,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * over it — it renders in its own portal layer above Settings.
  */
 export function TutorialView({ onClose }: TutorialViewProps) {
+  const trapRef = useFocusTrap<HTMLElement>()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -298,6 +300,7 @@ export function TutorialView({ onClose }: TutorialViewProps) {
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       >
         <motion.section
+          ref={trapRef}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}

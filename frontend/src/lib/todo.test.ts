@@ -100,6 +100,29 @@ describe('sortTodos', () => {
     const archived = todo({ id: 3, title: 'Mmm', archived: true })
     expect(sortTodos([done, archived, open], 'name').map((t) => t.id)).toEqual([1, 2, 3])
   })
+
+  it('follows the manual order when asked', () => {
+    const a = todo({ id: 1, title: 'First' })
+    const b = todo({ id: 2, title: 'Second' })
+    const c = todo({ id: 3, title: 'Third' })
+    expect(sortTodos([c, a, b], 'manual', [2, 3, 1]).map((t) => t.id)).toEqual([2, 3, 1])
+  })
+
+  it('puts tasks missing from the manual order last, newest first', () => {
+    const ranked = todo({ id: 1, createdAt: '2026-01-01T00:00:00.000Z' })
+    const newer = todo({ id: 2, createdAt: '2026-03-01T00:00:00.000Z' })
+    const older = todo({ id: 3, createdAt: '2026-02-01T00:00:00.000Z' })
+    expect(sortTodos([older, newer, ranked], 'manual', [1]).map((t) => t.id)).toEqual([1, 2, 3])
+  })
+
+  it('keeps done and archived tasks below open ones in manual order', () => {
+    const open = todo({ id: 1 })
+    const done = todo({ id: 2, done: true, completedAt: '2026-01-02T00:00:00.000Z' })
+    const archived = todo({ id: 3, archived: true })
+    expect(sortTodos([done, archived, open], 'manual', [3, 2, 1]).map((t) => t.id)).toEqual([
+      1, 2, 3,
+    ])
+  })
 })
 
 describe('todoBucket', () => {

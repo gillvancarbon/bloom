@@ -8,6 +8,7 @@ import { TodosView } from './components/TodosView'
 import { SettingsView } from './components/SettingsView'
 import { IntroFlow } from './components/IntroFlow'
 import { TermsGate } from './components/TermsGate'
+import { ToastHost } from './components/ToastHost'
 import { useSettings } from './context/SettingsContext'
 import { initReminderActions, syncTaskReminders } from './lib/notifications'
 import { dataClient } from './data/dataClient'
@@ -125,6 +126,8 @@ export default function App() {
 
       <AnimatePresence>{showTerms && <TermsGate />}</AnimatePresence>
       <AnimatePresence>{showIntro && <IntroFlow onFinish={finishIntro} />}</AnimatePresence>
+
+      <ToastHost />
     </div>
   )
 }

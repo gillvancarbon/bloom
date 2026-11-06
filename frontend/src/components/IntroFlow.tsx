@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Bell, Check, Flame, Layers, Leaf, Sparkles } from 'lucide-react'
 import { Portal } from './Portal'
 import { useSettings } from '../context/SettingsContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { requestNotificationPermission } from '../lib/notifications'
 
 interface IntroFlowProps {
@@ -40,7 +41,7 @@ const SLIDES: Slide[] = [
   {
     Icon: Bell,
     title: 'Reminders that act',
-    body: 'Get a nudge before a habit’s deadline or when a task is due. Reminders carry Complete and Snooze buttons, so you can deal with them without opening Bloom.',
+    body: 'Get a nudge before a habit’s deadline or when a task is due. Reminders carry Complete and Snooze actions, so you can deal with them without opening Bloom.',
   },
   {
     Icon: Sparkles,
@@ -65,6 +66,7 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
   const [reminder, setReminder] = useState<'idle' | 'granted' | 'denied'>('idle')
+  const trapRef = useFocusTrap<HTMLDivElement>()
 
   const slide = SLIDES[index]
   const isLast = index === SLIDES.length - 1
@@ -95,6 +97,7 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
   return (
     <Portal>
       <motion.div
+        ref={trapRef}
         className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-page"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

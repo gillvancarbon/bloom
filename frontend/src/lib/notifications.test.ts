@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Habit } from '../types'
-import { reminderOccurrences } from './notifications'
+import { reminderHorizonDate, reminderOccurrences, snoozeAt } from './notifications'
 
 function habit(overrides: Partial<Habit> = {}): Habit {
   return {
@@ -72,5 +72,47 @@ describe('reminderOccurrences', () => {
 
   it('returns nothing when the habit has no reminder', () => {
     expect(reminderOccurrences(habit({ reminderOffset: null }), NOW)).toEqual([])
+  })
+})
+
+describe('reminderHorizonDate', () => {
+  it('reports the last day of the rolling alarm window', () => {
+    // Occurrences cover today plus the next seven days.
+    expect(reminderHorizonDate(NOW).getDate()).toBe(11)
+    expect(reminderHorizonDate(NOW).getMonth()).toBe(10)
+    expect(reminderHorizonDate(NOW).getFullYear()).toBe(2026)
+  })
+
+  it('handles a window that crosses a month boundary', () => {
+    const endOfMonth = new Date(2026, 10, 28, 10, 0, 0)
+    const horizon = reminderHorizonDate(endOfMonth)
+    expect(horizon.getMonth()).toBe(11) // December
+    expect(horizon.getDate()).toBe(5)
+  })
+})
+
+describe('snoozeAt', () => {
+  it('adds ten minutes', () => {
+    expect(snoozeAt('snooze_10', new Date(2026, 10, 4, 9, 0))).toEqual(new Date(2026, 10, 4, 9, 10))
+  })
+
+  it('adds one hour', () => {
+    expect(snoozeAt('snooze_1h', new Date(2026, 10, 4, 9, 0))).toEqual(new Date(2026, 10, 4, 10, 0))
+  })
+
+  it('treats the legacy snooze id as one hour', () => {
+    expect(snoozeAt('snooze', new Date(2026, 10, 4, 9, 30))).toEqual(new Date(2026, 10, 4, 10, 30))
+  })
+
+  it('sends “tomorrow” to 9am the next day', () => {
+    expect(snoozeAt('snooze_tomorrow', new Date(2026, 10, 4, 23, 45))).toEqual(
+      new Date(2026, 10, 5, 9, 0),
+    )
+  })
+
+  it('rolls across a month boundary', () => {
+    expect(snoozeAt('snooze_tomorrow', new Date(2026, 10, 30, 20, 0))).toEqual(
+      new Date(2026, 11, 1, 9, 0),
+    )
   })
 })

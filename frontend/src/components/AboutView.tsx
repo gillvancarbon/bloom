@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Portal } from './Portal'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { APP_VERSION, LINKS } from '../lib/appInfo'
 import { TERMS_SUMMARY, TERMS_UPDATED, TERMS_VERSION } from '../lib/legal'
 
@@ -60,6 +61,7 @@ function ExternalLinkRow({ href, label, hint }: { href: string; label: string; h
  * summary and the legal links one tap away from the app itself.
  */
 export function AboutView({ onClose }: AboutViewProps) {
+  const trapRef = useFocusTrap<HTMLElement>()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -78,6 +80,7 @@ export function AboutView({ onClose }: AboutViewProps) {
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       >
         <motion.section
+          ref={trapRef}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
@@ -152,6 +155,10 @@ export function AboutView({ onClose }: AboutViewProps) {
             <p>
               Bloom is free for personal, noncommercial use. You may not sell it or redistribute it
               commercially. It is built with React, Spring Boot and other open-source projects.
+            </p>
+            <p className="text-xs text-muted">
+              The app, its help and its notifications are written in English only. There is no
+              localisation yet.
             </p>
             <ExternalLinkRow href={LINKS.repo} label="Source code" hint="View the project" />
             <ExternalLinkRow

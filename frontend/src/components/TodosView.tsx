@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Archive, ChevronDown, Lightbulb, Plus, Search, Sparkles, Wand2, X } from 'lucide-react'
+import { Archive, Check, ChevronDown, ListChecks, Plus, Search, Sparkles, X } from 'lucide-react'
 import { BrandHeader } from './BrandHeader'
 import { ThemeToggle } from './ThemeToggle'
 import { TodoCard } from './TodoCard'
@@ -10,6 +10,7 @@ import { Stat } from './Stat'
 import { UndoToast } from './UndoToast'
 import { useTodos } from '../hooks/useTodos'
 import { useNow } from '../hooks/useNow'
+import { useWindowedList } from '../hooks/useWindowedList'
 import { useUndoQueue } from '../hooks/useUndoQueue'
 import { useSettings } from '../context/SettingsContext'
 import {
@@ -18,21 +19,12 @@ import {
   dueState,
   isDoneToday,
   matchesTodo,
-  recurrenceLabel,
   sortTodos,
   todoBucket,
   todoStats,
   type TodoBucket,
 } from '../lib/todo'
-import {
-  QUICK_ADD_HELP,
-  applyQuickSuggestion,
-  parseQuickAdd,
-  quickAddCommand,
-  quickAddRecommendations,
-  quickAddSuggestions,
-  type QuickSuggestion,
-} from '../lib/quickAdd'
+import { QuickAddBar } from './QuickAddBar'
 import { playCompletionSound } from '../lib/sound'
 import { clearPendingDelete, schedulePendingDelete } from '../data/pendingDeletes'
 import type { Subtask, Todo, TodoInput, TodoSort } from '../types'
@@ -56,6 +48,7 @@ const TODO_SORT_OPTIONS: Array<{ value: TodoSort; label: string }> = [
   { value: 'importance', label: 'By priority' },
   { value: 'name', label: 'A–Z' },
   { value: 'created', label: 'Newest' },
+  { value: 'manual', label: 'Manual order' },
 ]
 
 const EMPTY_VIEW_TEXT: Record<TodoView, { title: string; hint: string }> = {
@@ -65,103 +58,14 @@ const EMPTY_VIEW_TEXT: Record<TodoView, { title: string; hint: string }> = {
   all: { title: 'All clear for now', hint: 'Enjoy the breathing room.' },
 }
 
-/** A few example sentences for the primer, taken from the guide's last section. */
-const QUICK_EXAMPLES =
-  QUICK_ADD_HELP.find((section) => section.title === 'Putting it together')?.entries.slice(0, 3) ??
-  []
-
-function QuickChip({
-  label,
-  title,
-  suggested = false,
-  onClick,
-}: {
-  label: string
-  title?: string
-  suggested?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className={`rounded-full px-2 py-0.5 font-medium transition-opacity duration-calm hover:opacity-80 ${
-        suggested
-          ? 'border border-dashed border-sage-400 text-sage-600 dark:border-sage-500 dark:text-sage-300'
-          : 'bg-mint-100 text-sage-700 dark:bg-mint-900/50 dark:text-mint-100'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
-/** The inline `/help` reference, opened by typing "/help" in the quick-add line. */
-function QuickAddHelpPanel({
-  onPick,
-  onClose,
-}: {
-  onPick: (insert: string) => void
-  onClose: () => void
-}) {
-  return (
-    <div
-      role="region"
-      aria-label="Quick add guide"
-      className="mt-2 rounded-calm border border-line bg-raised p-3.5 shadow-calm"
-    >
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <Lightbulb className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
-          Quick add guide
-        </p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close quick add guide"
-          className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted hover:text-ink"
-        >
-          <X className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </div>
-      <p className="mb-3 text-xs leading-relaxed text-muted">
-        Write a sentence and Bloom picks out the parts it understands, keeping the rest as the
-        title. Tap any example to try it.
-      </p>
-      <div className="space-y-3">
-        {QUICK_ADD_HELP.map((section) => (
-          <section key={section.title}>
-            <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-              {section.title}
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {section.entries.map((entry) => (
-                <button
-                  key={`${section.title}-${entry.insert}`}
-                  type="button"
-                  onClick={() => onPick(entry.insert)}
-                  className="inline-flex items-baseline gap-1.5 rounded-calm-sm border border-line bg-surface px-2.5 py-1
-                             text-left text-xs transition-all duration-calm hover:border-sage-300"
-                >
-                  <span className="font-semibold text-ink">{entry.insert}</span>
-                  <span className="text-muted">{entry.hint}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-    </div>
-  )
-}
-
+/** The visible to-do views: the due-date buckets, plus everything at once. */
 interface TodosViewProps {
   onOpenSettings: () => void
 }
 
 export function TodosView({ onOpenSettings }: TodosViewProps) {
-  const { todos, loading, error, busyId, create, update, remove, archive, toggle } = useTodos()
+  const { todos, order, loading, error, busyId, create, update, remove, archive, toggle, move } =
+    useTodos()
   const { settings, update: updateSettings } = useSettings()
   const now = useNow()
   const [dialog, setDialog] = useState<Dialog>({ type: 'none' })
@@ -170,15 +74,73 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
   const [view, setView] = useState<TodoView>('today')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [quickText, setQuickText] = useState('')
-  const [quickBusy, setQuickBusy] = useState(false)
-  const [quickError, setQuickError] = useState<string | null>(null)
-  const [quickFocused, setQuickFocused] = useState(false)
-  const quickInputRef = useRef<HTMLInputElement>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [hidden, setHidden] = useState<Set<number>>(new Set())
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [liveMessage, setLiveMessage] = useState('')
   const undo = useUndoQueue()
   const { commitNow } = undo
+
+  /**
+   * Announce a change to assistive tech. Clearing first lets the same sentence
+   * be announced twice in a row (e.g. adding two tasks with the same title).
+   */
+  function announce(message: string) {
+    setLiveMessage('')
+    requestAnimationFrame(() => setLiveMessage(message))
+  }
+
+  /** Leave selection mode and forget anything that was ticked. */
+  function endSelection() {
+    setSelecting(false)
+    setSelected(new Set())
+  }
+
+  function toggleSelect(todo: Todo) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(todo.id)) next.delete(todo.id)
+      else next.add(todo.id)
+      return next
+    })
+  }
+
+  /** Tick every task currently shown in the open list. */
+  function selectAllShown(ids: number[]) {
+    setSelected(new Set(ids))
+  }
+
+  /** Apply an update to each selected task, one after another. */
+  async function runBulk(ids: number[], task: (id: number) => Promise<unknown>) {
+    for (const id of ids) {
+      await task(id)
+    }
+  }
+
+  async function bulkComplete() {
+    const ids = [...selected].filter((id) => !todos.find((t) => t.id === id)?.done)
+    if (!ids.length) return endSelection()
+    await runBulk(ids, (id) => toggle(id))
+    announce(ids.length === 1 ? '1 task completed.' : `${ids.length} tasks completed.`)
+    endSelection()
+  }
+
+  async function bulkArchive(archived: boolean) {
+    const ids = [...selected]
+    if (!ids.length) return endSelection()
+    await runBulk(ids, (id) => archive(id, archived))
+    announce(
+      archived
+        ? ids.length === 1
+          ? '1 task archived.'
+          : `${ids.length} tasks archived.`
+        : ids.length === 1
+          ? '1 task restored.'
+          : `${ids.length} tasks restored.`,
+    )
+    endSelection()
+  }
 
   // Commit any pending delete when leaving the screen, so a tab switch can't
   // resurrect an optimistically-hidden task.
@@ -217,26 +179,15 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
   const viewTodos = matchingTodos.filter(
     (todo) => searching || view === 'all' || todoBucket(todo, now) === view,
   )
-  const orderedOpen = sortTodos(viewTodos, settings.todoSort)
+  const orderedOpen = sortTodos(viewTodos, settings.todoSort, order)
   const hasOpen = openTodos.length > 0
-
-  // The quick-add guidance: a /help command, live suggestions while typing, a
-  // preview of what was understood, and opt-in recommendations for the rest.
-  const quickCommand = quickAddCommand(quickText)
-  const quickPreview = quickText.trim() && !quickCommand ? parseQuickAdd(quickText, now) : null
-  const quickSuggestions = !quickCommand && quickText.trim() ? quickAddSuggestions(quickText) : []
-  const quickRecommendations = quickPreview ? quickAddRecommendations(quickPreview) : []
-  const hasPreviewChips = Boolean(
-    quickPreview &&
-    (quickPreview.dueDate ||
-      quickPreview.recurrence !== 'none' ||
-      quickPreview.importance !== 'medium' ||
-      quickPreview.category !== 'personal'),
-  )
-  const showQuickPrimer = quickFocused && !quickText.trim() && !quickCommand
+  const manualOrder = settings.todoSort === 'manual'
+  // Long lists mount a page at a time so the DOM stays small and smooth.
+  const openWindow = useWindowedList(orderedOpen)
 
   async function handleCreate(input: TodoInput) {
     await create(input)
+    announce(`Added “${input.title}”.`)
   }
 
   async function handleUpdate(input: TodoInput) {
@@ -269,6 +220,8 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
           }).then(() => undefined),
         onCommit: () => undefined,
       })
+    } else {
+      announce(completing ? `“${todo.title}” completed.` : `“${todo.title}” reopened.`)
     }
   }
 
@@ -319,43 +272,6 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
     })
   }
 
-  /** Put text in the quick-add line and keep the caret at the end. */
-  function putQuickText(next: string) {
-    setQuickText(next)
-    requestAnimationFrame(() => {
-      const input = quickInputRef.current
-      if (!input) return
-      input.focus()
-      const end = input.value.length
-      input.setSelectionRange(end, end)
-    })
-  }
-
-  /** Complete the trailing token/phrase, or append the suggestion. */
-  function insertQuickSuggestion(insert: string) {
-    putQuickText(applyQuickSuggestion(quickText, insert))
-  }
-
-  async function handleQuickAdd(e: React.FormEvent) {
-    e.preventDefault()
-    if (quickCommand) return
-    const parsed = parseQuickAdd(quickText, now)
-    if (!parsed) {
-      setQuickError('Add a title for your task.')
-      return
-    }
-    setQuickBusy(true)
-    setQuickError(null)
-    try {
-      await create({ ...parsed, note: null, subtasks: [] })
-      setQuickText('')
-    } catch (err) {
-      setQuickError(err instanceof Error ? err.message : 'Could not add that task.')
-    } finally {
-      setQuickBusy(false)
-    }
-  }
-
   async function handleArchive(todo: Todo) {
     const next = !todo.archived
     setSelectedId(null)
@@ -392,6 +308,9 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
 
   return (
     <div className="safe-shell relative z-10 mx-auto max-w-2xl px-4 sm:px-6">
+      <p className="sr-only" role="status" aria-live="polite">
+        {liveMessage}
+      </p>
       <BrandHeader subtitle="A calm place for what’s next." onOpenSettings={onOpenSettings}>
         <ThemeToggle />
       </BrandHeader>
@@ -423,6 +342,18 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => (selecting ? endSelection() : setSelecting(true))}
+            aria-pressed={selecting}
+            aria-label={selecting ? 'Done selecting' : 'Select tasks'}
+            title="Select tasks"
+            className={`silicone flex h-9 w-9 items-center justify-center rounded-full ${
+              selecting ? 'text-sage-500 dark:text-sage-300' : 'text-muted'
+            }`}
+          >
+            <ListChecks className="h-4 w-4" aria-hidden />
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setSearchOpen((open) => !open)
               if (searchOpen) setQuery('')
@@ -449,127 +380,7 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
 
       {/* Quick add — type a sentence, we work out the rest */}
       {!loading && !error && (
-        <form onSubmit={handleQuickAdd} className="mb-2">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Wand2
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <input
-                ref={quickInputRef}
-                value={quickText}
-                onChange={(e) => {
-                  setQuickText(e.target.value)
-                  if (quickError) setQuickError(null)
-                }}
-                onFocus={() => setQuickFocused(true)}
-                onBlur={() => setQuickFocused(false)}
-                placeholder="Try “call mum tomorrow 6pm” or /help"
-                maxLength={200}
-                aria-label="Quick add a task"
-                className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-3 text-sm
-                           text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
-                           focus:ring-2 focus:ring-sage-400/30"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={quickBusy || !quickText.trim() || quickCommand !== null}
-              className="silicone-primary shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold
-                         disabled:opacity-50"
-            >
-              Add
-            </button>
-          </div>
-
-          {quickError ? (
-            <p className="mt-1.5 text-xs text-peach-600 dark:text-peach-300">{quickError}</p>
-          ) : quickCommand === 'help' ? (
-            <QuickAddHelpPanel onPick={putQuickText} onClose={() => putQuickText('')} />
-          ) : (
-            <>
-              {quickSuggestions.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-muted">
-                    {quickSuggestions.length > 1 ? 'Suggestions:' : 'Suggestion:'}
-                  </span>
-                  {quickSuggestions.map((suggestion: QuickSuggestion) => (
-                    <QuickChip
-                      key={suggestion.insert}
-                      label={suggestion.label}
-                      onClick={() => insertQuickSuggestion(suggestion.insert)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {hasPreviewChips && quickPreview && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                  {quickPreview.dueDate && (
-                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                      {dueState(quickPreview.dueDate, quickPreview.dueTime, now).text}
-                    </span>
-                  )}
-                  {recurrenceLabel(quickPreview.recurrence) && (
-                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                      {recurrenceLabel(quickPreview.recurrence)}
-                    </span>
-                  )}
-                  {quickPreview.importance !== 'medium' && (
-                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                      {quickPreview.importance}
-                    </span>
-                  )}
-                  {quickPreview.category !== 'personal' && (
-                    <span className="rounded-full bg-mint-100 px-2 py-0.5 font-medium capitalize text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                      {quickPreview.category}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {quickRecommendations.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="inline-flex items-center gap-1 text-muted">
-                    <Lightbulb className="h-3.5 w-3.5" aria-hidden />
-                    Suggested:
-                  </span>
-                  {quickRecommendations.map((suggestion: QuickSuggestion) => (
-                    <QuickChip
-                      key={suggestion.insert}
-                      label={suggestion.label}
-                      title="Add to your task"
-                      suggested
-                      onClick={() => insertQuickSuggestion(suggestion.insert)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {showQuickPrimer && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                  <span>Try a whole sentence:</span>
-                  {QUICK_EXAMPLES.map((example) => (
-                    <QuickChip
-                      key={example.insert}
-                      label={example.insert}
-                      title={example.hint}
-                      onClick={() => putQuickText(example.insert)}
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => putQuickText('/help')}
-                    className="font-medium text-sage-600 underline-offset-2 hover:underline dark:text-sage-300"
-                  >
-                    or type /help
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </form>
+        <QuickAddBar now={now} onAdd={handleCreate} guidance={settings.quickAddGuidance} />
       )}
 
       {/* Search field */}
@@ -674,6 +485,50 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
         </>
       )}
 
+      {/* Bulk actions — shown while selecting tasks */}
+      {selecting && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-calm border border-line bg-raised px-3 py-2 shadow-calm">
+          <span className="text-xs font-medium text-muted">
+            {selected.size === 0 ? 'Select tasks to act on' : `${selected.size} selected`}
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => selectAllShown(orderedOpen.map((t) => t.id))}
+              disabled={orderedOpen.length === 0}
+              className="silicone-quiet rounded-full px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-40"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={() => void bulkComplete()}
+              disabled={selected.size === 0}
+              className="silicone inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-sage-700 disabled:opacity-40 dark:text-sage-200"
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Complete
+            </button>
+            <button
+              type="button"
+              onClick={() => void bulkArchive(true)}
+              disabled={selected.size === 0}
+              className="silicone inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-muted disabled:opacity-40"
+            >
+              <Archive className="h-3.5 w-3.5" aria-hidden />
+              Archive
+            </button>
+            <button
+              type="button"
+              onClick={endSelection}
+              className="silicone-quiet rounded-full px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="space-y-3" aria-label="Loading tasks">
@@ -715,7 +570,7 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
           {orderedOpen.length > 0 ? (
             <motion.ul layout className="space-y-3">
               <AnimatePresence initial={false}>
-                {orderedOpen.map((todo) => (
+                {openWindow.visible.map((todo, index) => (
                   <li key={todo.id}>
                     <TodoCard
                       todo={todo}
@@ -741,6 +596,13 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
                         setSelectedId(null)
                         setDialog({ type: 'delete', todo: t })
                       }}
+                      selectable={selecting}
+                      selected={selected.has(todo.id)}
+                      onSelect={toggleSelect}
+                      onMoveUp={manualOrder ? () => move(todo.id, -1) : undefined}
+                      onMoveDown={manualOrder ? () => move(todo.id, 1) : undefined}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < orderedOpen.length - 1}
                     />
                   </li>
                 ))}
@@ -754,6 +616,19 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
               <p className="mt-1 text-xs text-muted">
                 {searching ? `Nothing matches “${query.trim()}”.` : EMPTY_VIEW_TEXT[view].hint}
               </p>
+            </div>
+          )}
+
+          {/* Grow the window when the end of the mounted list comes into view. */}
+          {orderedOpen.length > 0 && openWindow.hasMore && (
+            <div ref={openWindow.sentinelRef} className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={openWindow.showMore}
+                className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+              >
+                Show more ({orderedOpen.length - openWindow.visible.length} left)
+              </button>
             </div>
           )}
 

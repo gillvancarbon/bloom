@@ -12,7 +12,7 @@
   --surface: 250 250 247; /* warm white */
   --raised: 255 255 255; /* cards */
   --ink: 40 48 40; /* deep sage-charcoal */
-  --muted: 107 122 107; /* soft sage grey */
+  --muted: 95 110 95; /* soft sage grey — AA contrast on every surface */
   --line: 224 232 224; /* pale sage line */
   --shadow: 37 66 46; /* sage-tinted shadow */
   --cal-none: 233 240 233; /* no data — pale sage wash */
@@ -99,10 +99,14 @@ textarea,
   @apply bg-mint-400 dark:bg-mint-700;
 }
 
-/* Focus ring that matches the palette */
+/* Focus ring that matches the palette. sage-500 clears the 3:1 non-text
+   contrast bar on light surfaces; sage-400 does the same on dark ones. */
 :focus-visible {
-  outline: 2px solid theme('colors.sage.400');
+  outline: 2px solid theme('colors.sage.500');
   outline-offset: 2px;
+}
+.dark :focus-visible {
+  outline-color: theme('colors.sage.400');
 }
 
 /* ── Minimal neomorphic controls ─────────────────────────────────────

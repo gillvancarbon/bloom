@@ -20,6 +20,7 @@ import { localTodoStore } from '../data/localTodoStore'
 import { nudgeStore } from '../data/nudgeStore'
 import { settingsStore } from '../data/settingsStore'
 import { notifyDataChanged } from './dataEvents'
+import { showToast } from './toast'
 
 /**
  * Habit reminders.
@@ -57,12 +58,71 @@ const TODO_OVERDUE_OFFSET = 1_000_000
 const HORIZON_DAYS = 8
 /** The Android action set (Complete / Snooze) shared by every reminder. */
 const ACTION_TYPE_ID = 'BLOOM_REMINDER'
+/** A one-off notification used by Settings → "Send a test". */
+const TEST_NOTIFICATION_ID = 999_999_999
 
 const webTimers = new Map<number, ReturnType<typeof setTimeout>>()
 const webTaskTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
 export function notificationsNative(): boolean {
   return Capacitor.isNativePlatform()
+}
+
+/**
+ * The last day the rolling one-shot window reaches. Shown in Settings so a
+ * user can see reminders are actually armed beyond "right now".
+ */
+export function reminderHorizonDate(now: Date = new Date()): Date {
+  const last = new Date(now)
+  last.setDate(last.getDate() + HORIZON_DAYS - 1)
+  return last
+}
+
+/**
+ * Fire a notification a few seconds from now so the user can confirm that
+ * reminders reach the device. Returns false when permission isn't granted.
+ */
+export async function sendTestNotification(): Promise<boolean> {
+  const settings = await settingsStore.read()
+  if (notificationsNative()) {
+    try {
+      const status = await LocalNotifications.checkPermissions()
+      if (status.display !== 'granted') return false
+      const channelId = await getReminderChannelId(settings.reminderSound)
+      // Replace any earlier test still waiting.
+      await LocalNotifications.cancel({
+        notifications: [{ id: TEST_NOTIFICATION_ID }],
+      }).catch(() => undefined)
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: TEST_NOTIFICATION_ID,
+            title: 'Bloom',
+            body: 'This is a test reminder — everything is working.',
+            channelId,
+            smallIcon: 'ic_stat_bloom',
+            ...(settings.reminderSound === 'bloom_chime' ? { sound: 'bloom_chime' } : {}),
+            autoCancel: true,
+            schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+          },
+        ],
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
+  try {
+    new Notification('Bloom', {
+      body: 'This is a test reminder — everything is working.',
+      tag: 'bloom-test',
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function parseHM(hhmm: string): { hour: number; minute: number } {
@@ -438,11 +498,46 @@ export function syncTaskReminders(todos: Todo[], settings: Settings): Promise<vo
   return taskSyncChain
 }
 
+/** Every snooze choice a reminder offers, from a short breather to tomorrow. */
+export type SnoozeChoice = 'snooze_10' | 'snooze_1h' | 'snooze_tomorrow'
+
+const SNOOZE_CHOICES: SnoozeChoice[] = ['snooze_10', 'snooze_1h', 'snooze_tomorrow']
+
+/** True for the current ids and the original single "Snooze 1h" action. */
+function isSnooze(actionId: string): actionId is SnoozeChoice | 'snooze' {
+  return actionId === 'snooze' || (SNOOZE_CHOICES as string[]).includes(actionId)
+}
+
 /**
- * Register the Complete / Snooze actions shown on reminders and handle them as
- * they're tapped. Complete writes straight to the on-device store (so it works
- * whether or not a screen is open) and then re-arms the reminder window; a task
- * toast is offered in-app via {@link notifyDataChanged}. Native only.
+ * When a snooze should re-fire. Ten minutes and an hour are relative; "tomorrow"
+ * lands on 9am the next day so a reminder deferred at night arrives at a
+ * sensible hour rather than in the small hours.
+ */
+export function snoozeAt(choice: SnoozeChoice | 'snooze', now: Date = new Date()): Date {
+  const at = new Date(now)
+  switch (choice) {
+    case 'snooze_10':
+      at.setMinutes(at.getMinutes() + 10)
+      break
+    case 'snooze_tomorrow':
+      at.setDate(at.getDate() + 1)
+      at.setHours(9, 0, 0, 0)
+      break
+    case 'snooze_1h':
+    case 'snooze':
+    default:
+      at.setHours(at.getHours() + 1)
+      break
+  }
+  return at
+}
+
+/**
+ * Register the reminder actions and handle them as they're tapped. Complete
+ * writes straight to the on-device store (so it works whether or not a screen
+ * is open) and then re-arms the reminder window; a failure is surfaced through
+ * the shared toast bus. Snooze re-arms the same notification at the chosen
+ * time. Native only.
  */
 export async function initReminderActions(): Promise<void> {
   if (!notificationsNative()) return
@@ -454,7 +549,9 @@ export async function initReminderActions(): Promise<void> {
           id: ACTION_TYPE_ID,
           actions: [
             { id: 'complete', title: 'Complete' },
-            { id: 'snooze', title: 'Snooze 1h' },
+            { id: 'snooze_10', title: 'Snooze 10 min' },
+            { id: 'snooze_1h', title: 'Snooze 1 hour' },
+            { id: 'snooze_tomorrow', title: 'Snooze until tomorrow' },
           ],
         },
       ],
@@ -475,15 +572,16 @@ export async function initReminderActions(): Promise<void> {
 async function handleReminderAction(event: ActionPerformed): Promise<void> {
   const { actionId, notification } = event
 
-  // Snooze: re-arm the very same notification an hour from now.
-  if (actionId === 'snooze') {
-    const at = new Date(Date.now() + 60 * 60 * 1000)
+  // Snooze: re-arm the very same notification at the chosen time.
+  if (isSnooze(actionId)) {
     try {
       await LocalNotifications.schedule({
-        notifications: [{ ...notification, schedule: { at, allowWhileIdle: true } }],
+        notifications: [
+          { ...notification, schedule: { at: snoozeAt(actionId), allowWhileIdle: true } },
+        ],
       })
     } catch {
-      /* ignore */
+      showToast('Couldn’t snooze that reminder. Open Bloom to reschedule it.', 'error')
     }
     return
   }
@@ -501,7 +599,8 @@ async function handleReminderAction(event: ActionPerformed): Promise<void> {
       await syncTaskReminders(await localTodoStore.list(), await settingsStore.read())
     }
   } catch {
-    /* the record may have been deleted — nothing to do */
+    // The record may have been deleted, or the store refused the write.
+    showToast('Couldn’t update that from the reminder. Open Bloom to try again.', 'error')
   } finally {
     notifyDataChanged()
   }

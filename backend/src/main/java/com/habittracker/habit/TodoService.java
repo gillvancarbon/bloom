@@ -24,7 +24,7 @@ public class TodoService {
      * Completed tasks sink to the bottom, newest completion first.
      */
     public List<Todo> getAllTodos() {
-        List<Todo> todos = todoRepository.findAllByOrderByCreatedAtDesc();
+        List<Todo> todos = new ArrayList<>(todoRepository.findAllByOrderByCreatedAtDesc());
         todos.sort(Comparator
                 .comparing(Todo::isArchived)
                 .thenComparing(Todo::isDone)

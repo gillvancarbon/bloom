@@ -1,21 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Leaf, ScrollText, ShieldCheck } from 'lucide-react'
 import { Portal } from './Portal'
 import { useSettings } from '../context/SettingsContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { exitApp } from '../lib/appControl'
 import { LINKS } from '../lib/appInfo'
 import { TERMS_SECTIONS, TERMS_SUMMARY, TERMS_UPDATED, TERMS_VERSION } from '../lib/legal'
 
 /**
  * A hard gate shown to a brand-new user before the app is usable. The only way
- * past it is to read the terms and tick the box; declining (or pressing Escape)
- * closes the app. There is deliberately no backdrop tap, close button or skip.
+ * past it is to read the terms and tick the box; declining closes the app.
+ * There is deliberately no backdrop tap, close button or skip. Escape is left
+ * alone so a stray keypress can't close the app during first-run.
  */
 export function TermsGate() {
   const { update } = useSettings()
   const [agreed, setAgreed] = useState(false)
   const [declined, setDeclined] = useState(false)
+  const trapRef = useFocusTrap<HTMLDivElement>()
 
   function accept() {
     if (!agreed) return
@@ -27,19 +30,11 @@ export function TermsGate() {
     await exitApp()
   }
 
-  // Escape counts as a refusal; the app closes.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void decline()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
   if (declined) {
     return (
       <Portal>
         <div
+          ref={trapRef}
           className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-3 bg-page px-8 text-center"
           role="alertdialog"
           aria-modal="true"
@@ -66,6 +61,7 @@ export function TermsGate() {
   return (
     <Portal>
       <motion.div
+        ref={trapRef}
         className="fixed inset-0 z-[80] flex flex-col overflow-y-auto bg-page"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

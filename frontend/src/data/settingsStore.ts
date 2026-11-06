@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   habitSort: 'incomplete',
   todoSort: 'due',
   hideCompleted: false,
+  quickAddGuidance: true,
   followClock: false,
   freezeTokens: WEEKLY_FREEZES,
   lastFreezeWeek: null,
@@ -48,7 +49,7 @@ function sortFrom(value: unknown): HabitSort {
   return HABIT_SORTS.includes(value as HabitSort) ? (value as HabitSort) : 'incomplete'
 }
 
-const TODO_SORTS: TodoSort[] = ['due', 'importance', 'name', 'created']
+const TODO_SORTS: TodoSort[] = ['due', 'importance', 'name', 'created', 'manual']
 
 function todoSortFrom(value: unknown): TodoSort {
   return TODO_SORTS.includes(value as TodoSort) ? (value as TodoSort) : 'due'
@@ -86,6 +87,7 @@ export function normalizeSettings(raw: RawSettings | null): Settings {
     habitSort: sortFrom(merged.habitSort),
     todoSort: todoSortFrom(merged.todoSort),
     hideCompleted: Boolean(merged.hideCompleted),
+    quickAddGuidance: merged.quickAddGuidance !== false,
     followClock: Boolean(merged.followClock),
     freezeTokens: Number.isFinite(merged.freezeTokens)
       ? Math.max(0, Math.round(merged.freezeTokens))

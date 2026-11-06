@@ -18,7 +18,7 @@ export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'anytime'
 export type HabitSort = 'incomplete' | 'manual' | 'deadline' | 'name'
 
 /** How the to-do list is ordered inside the chosen view. */
-export type TodoSort = 'due' | 'importance' | 'name' | 'created'
+export type TodoSort = 'due' | 'importance' | 'name' | 'created' | 'manual'
 
 export interface Habit {
   id: number
@@ -155,6 +155,8 @@ export interface Settings {
   todoSort: TodoSort
   /** Hide completed habits from the day's list. */
   hideCompleted: boolean
+  /** Show quick-add suggestions, recommendations and the primer. */
+  quickAddGuidance: boolean
   /** Follow the clock: switch the visible period as the day advances. */
   followClock: boolean
   /** Streak freezes left to spend; refilled to a weekly allowance. */

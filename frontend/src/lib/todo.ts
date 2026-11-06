@@ -320,7 +320,13 @@ function byDue(a: Todo, b: Todo): number {
  *   name       — A–Z
  *   created    — newest first
  */
-export function sortTodos(todos: Todo[], sort: TodoSort = 'due'): Todo[] {
+export function sortTodos(todos: Todo[], sort: TodoSort = 'due', order: number[] = []): Todo[] {
+  // Rank for manual ordering: the first time an id appears wins.
+  const manualRank = new Map<number, number>()
+  order.forEach((id, index) => {
+    if (!manualRank.has(id)) manualRank.set(id, index)
+  })
+
   return [...todos].sort((a, b) => {
     // Archived tasks sink below everything else.
     if (a.archived !== b.archived) return a.archived ? 1 : -1
@@ -334,6 +340,13 @@ export function sortTodos(todos: Todo[], sort: TodoSort = 'due'): Todo[] {
     }
 
     switch (sort) {
+      case 'manual': {
+        const aRank = manualRank.get(a.id) ?? Number.MAX_SAFE_INTEGER
+        const bRank = manualRank.get(b.id) ?? Number.MAX_SAFE_INTEGER
+        if (aRank !== bRank) return aRank - bRank
+        // Unranked (e.g. brand-new) tasks sink to the bottom, newest first.
+        return b.createdAt.localeCompare(a.createdAt)
+      }
       case 'importance': {
         const rank = importanceMeta(b.importance).rank - importanceMeta(a.importance).rank
         if (rank !== 0) return rank

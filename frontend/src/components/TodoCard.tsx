@@ -1,5 +1,14 @@
 import { motion } from 'framer-motion'
-import { CalendarDays, Check, ChevronDown, ListChecks, MoveRight, Repeat } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ListChecks,
+  MoveRight,
+  Repeat,
+} from 'lucide-react'
 import type { Todo } from '../types'
 import {
   categoryMeta,
@@ -28,6 +37,15 @@ interface TodoCardProps {
   /** Whether the checklist is open. */
   expanded?: boolean
   onToggleExpand?: () => void
+  /** Bulk-selection mode: show a checkbox and hide the per-row actions. */
+  selectable?: boolean
+  selected?: boolean
+  onSelect?: (todo: Todo) => void
+  /** Manual order: move this task one slot up or down. */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 export function TodoCard({
@@ -44,6 +62,13 @@ export function TodoCard({
   onToggleSubtask,
   expanded = false,
   onToggleExpand,
+  selectable = false,
+  selected = false,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
 }: TodoCardProps) {
   const category = categoryMeta(todo.category)
   const CategoryIcon = category.icon
@@ -78,26 +103,47 @@ export function TodoCard({
                   }`}
     >
       <div className="flex items-start gap-3 sm:gap-4">
-        {/* Completion toggle */}
-        <button
-          type="button"
-          onClick={() => onToggle(todo)}
-          disabled={busy}
-          aria-pressed={todo.done}
-          aria-label={todo.done ? `Mark ${todo.title} as not done` : `Mark ${todo.title} complete`}
-          title={todo.done ? 'Mark as not done' : 'Mark complete'}
-          className={`${todo.done ? 'silicone-primary' : 'silicone'} mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center
-                      rounded-full sm:h-11 sm:w-11 ${busy ? 'opacity-60' : ''}`}
-        >
-          <Check
-            className={`h-5 w-5 transition-all duration-calm ease-calm ${
-              todo.done
-                ? 'scale-100 opacity-100'
-                : 'scale-75 text-sage-500 opacity-50 dark:text-sage-300'
-            }`}
-            aria-hidden
-          />
-        </button>
+        {selectable ? (
+          /* Bulk selection checkbox */
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={selected}
+            aria-label={`Select ${todo.title}`}
+            onClick={() => onSelect?.(todo)}
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border
+                        transition-colors duration-calm ease-calm sm:h-11 sm:w-11 ${
+                          selected
+                            ? 'border-sage-500 bg-sage-500 text-white'
+                            : 'border-line bg-surface text-transparent hover:border-sage-300'
+                        }`}
+          >
+            <Check className="h-5 w-5" aria-hidden />
+          </button>
+        ) : (
+          /* Completion toggle */
+          <button
+            type="button"
+            onClick={() => onToggle(todo)}
+            disabled={busy}
+            aria-pressed={todo.done}
+            aria-label={
+              todo.done ? `Mark ${todo.title} as not done` : `Mark ${todo.title} complete`
+            }
+            title={todo.done ? 'Mark as not done' : 'Mark complete'}
+            className={`${todo.done ? 'silicone-primary' : 'silicone'} mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center
+                        rounded-full sm:h-11 sm:w-11 ${busy ? 'opacity-60' : ''}`}
+          >
+            <Check
+              className={`h-5 w-5 transition-all duration-calm ease-calm ${
+                todo.done
+                  ? 'scale-100 opacity-100'
+                  : 'scale-75 text-sage-500 opacity-50 dark:text-sage-300'
+              }`}
+              aria-hidden
+            />
+          </button>
+        )}
 
         {/* Title + type + due date */}
         <div className="min-w-0 flex-1">
@@ -212,16 +258,46 @@ export function TodoCard({
           )}
         </div>
 
-        <RowActions
-          id={todo.id}
-          label={todo.title}
-          archived={todo.archived}
-          open={actionsOpen}
-          onToggle={onToggleActions}
-          onEdit={() => onEdit(todo)}
-          onArchive={onArchive ? () => onArchive(todo) : undefined}
-          onDelete={() => onDelete(todo)}
-        />
+        {!selectable &&
+          (onMoveUp || onMoveDown ? (
+            <div className="flex shrink-0 flex-col gap-1" aria-label={`Reorder ${todo.title}`}>
+              {onMoveUp && (
+                <button
+                  type="button"
+                  onClick={onMoveUp}
+                  disabled={!canMoveUp}
+                  aria-label={`Move ${todo.title} up`}
+                  className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted
+                             hover:text-ink disabled:opacity-40"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              )}
+              {onMoveDown && (
+                <button
+                  type="button"
+                  onClick={onMoveDown}
+                  disabled={!canMoveDown}
+                  aria-label={`Move ${todo.title} down`}
+                  className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted
+                             hover:text-ink disabled:opacity-40"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              )}
+            </div>
+          ) : (
+            <RowActions
+              id={todo.id}
+              label={todo.title}
+              archived={todo.archived}
+              open={actionsOpen}
+              onToggle={onToggleActions}
+              onEdit={() => onEdit(todo)}
+              onArchive={onArchive ? () => onArchive(todo) : undefined}
+              onDelete={() => onDelete(todo)}
+            />
+          ))}
       </div>
     </motion.article>
   )

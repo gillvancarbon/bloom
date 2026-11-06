@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Habit, Todo } from '../types'
 import { normalizeHabit } from './habit'
 import { normalizeTodo } from './todo'
-import { parseBundle, toJson } from './export'
+import { EXPORT_SCHEMA_VERSION, parseBundle, toJson } from './export'
 
 function todo(overrides: Partial<Todo>): Todo {
   return normalizeTodo({
@@ -46,12 +46,20 @@ function habit(overrides: Partial<Habit>): Habit {
 }
 
 describe('toJson', () => {
-  it('wraps habits and tasks in a labelled snapshot', () => {
+  it('wraps habits and tasks in a labelled, versioned snapshot', () => {
     const parsed = JSON.parse(toJson([habit({})], [todo({})], new Date('2026-11-05T10:00:00.000Z')))
     expect(parsed.app).toBe('Bloom')
+    expect(parsed.schemaVersion).toBe(EXPORT_SCHEMA_VERSION)
     expect(parsed.exportedAt).toBe('2026-11-05T10:00:00.000Z')
     expect(parsed.habits).toHaveLength(1)
     expect(parsed.todos).toHaveLength(1)
+  })
+
+  it('includes settings when supplied', () => {
+    const parsed = JSON.parse(
+      toJson([], [], new Date('2026-11-05T10:00:00.000Z'), { theme: 'dark' } as never),
+    )
+    expect(parsed.settings.theme).toBe('dark')
   })
 })
 
@@ -78,5 +86,26 @@ describe('parseBundle', () => {
     expect(() => parseBundle('not json')).toThrow(/valid JSON/)
     expect(() => parseBundle('[1,2,3]')).toThrow(/Bloom export/)
     expect(() => parseBundle('{"hello":"world"}')).toThrow(/habits or tasks/)
+  })
+
+  it('refuses a snapshot written by a newer version', () => {
+    expect(() =>
+      parseBundle(`{"app":"Bloom","schemaVersion":${EXPORT_SCHEMA_VERSION + 1},"todos":[]}`),
+    ).toThrow(/newer version/)
+  })
+
+  it('round-trips saved preferences', () => {
+    const text = toJson([], [], new Date(), {
+      timeFormat: '24',
+      weekStart: 1,
+      onboarded: true,
+    } as never)
+    const bundle = parseBundle(text)
+    expect(bundle.settings).toMatchObject({ timeFormat: '24', weekStart: 1, onboarded: true })
+  })
+
+  it('treats a snapshot with no version as the original format', () => {
+    const bundle = parseBundle('{"app":"Bloom","todos":[]}')
+    expect(bundle.todos).toEqual([])
   })
 })

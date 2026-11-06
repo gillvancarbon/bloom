@@ -2,4 +2,6 @@ dist
 node_modules
 android
 coverage
+test-results
+playwright-report
 package-lock.json

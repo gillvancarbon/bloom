@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { AlertTriangle } from 'lucide-react'
 
 interface DeleteConfirmProps {
@@ -25,6 +26,7 @@ export function DeleteConfirm({
 }: DeleteConfirmProps) {
   const [deleting, setDeleting] = useState(false)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const trapRef = useFocusTrap<HTMLDivElement>()
 
   useEffect(() => {
     cancelRef.current?.focus()
@@ -58,6 +60,7 @@ export function DeleteConfirm({
           aria-hidden
         />
         <motion.div
+          ref={trapRef}
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.16, ease: 'easeOut' }}

@@ -181,6 +181,43 @@ app) and pushes it through the tiny `BloomWidgetPlugin`. Habit reminders use
 `@capacitor/local-notifications`; `POST_NOTIFICATIONS` is requested on Android
 13+ when reminders are enabled in Settings.
 
+## Releasing to Google Play
+
+Bloom is published under the application ID `com.bloom.habittracker`. The signed
+APK is built by CI on a `v*` tag (or manually) and attached to a GitHub Release;
+the Android job reads the keystore from repository secrets, so the keystore and
+`keystore.properties` are never committed.
+
+**Testing requirement.** Google requires new *personal* developer accounts to
+run a closed test before production: at least **12 testers opted in for 14
+continuous days**, after which you can apply for production access. Line up a
+small group of real users (friends, family or a testers' community) and keep
+them opted in for the whole window — removing testers resets the clock.
+
+**Store listing inputs**
+
+- **Privacy policy URL** — `https://github.com/gillvancarbon/bloom/blob/main/PRIVACY.md`.
+  It must open without signing in, which the GitHub link does.
+- **Data safety** — declare **no data collected** and **no data shared**.
+  Everything is stored on-device; the Android build has no account, analytics or
+  network calls, so nothing leaves the phone.
+- **Content rating** — answer the questionnaire honestly: no ads, no in-app
+  purchases, no user-generated content shared with anyone else. Expect
+  **Everyone / PEGI 3**.
+- **Permissions** — `POST_NOTIFICATIONS` is the only runtime permission, and it
+  is requested only when the user turns reminders on. Bloom asks for no location,
+  camera, contacts or storage access.
+
+**Build & upload**
+
+```bash
+# Local: produce a signed APK (keystore.properties must exist, untracked)
+cd frontend && npx cap sync android && cd android && ./gradlew assembleRelease
+
+# CI: tag a release; the workflow builds and attaches the APK
+git tag v1.3.0 && git push origin v1.3.0
+```
+
 ## Project layout
 
 
@@ -386,6 +423,14 @@ The same terms are shown in the app on first run and can be reopened from
 
 The privacy summary and licence are also reachable in the app from
 **Settings → About**.
+
+## Language
+
+Bloom's interface, in-app guide and notifications are written in **English
+only**. There is no localisation or translation layer yet, and dates and times
+follow the device's own locale and time zone rather than an in-app setting.
+Adding a language would mean introducing an i18n layer and translating every
+string, including the legal pages.
 
 ## Notes
 

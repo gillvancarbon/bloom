@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { localTodoStore } from '../data/localTodoStore'
+import { todoOrderStore } from '../data/todoOrderStore'
 import { normalizeTodo, sortTodos } from '../lib/todo'
 import { useSettings } from '../context/SettingsContext'
 import { syncTaskReminders } from '../lib/notifications'
@@ -19,19 +20,42 @@ export function useTodos() {
   const [loading, setLoading] = useState(todosCache === null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [order, setOrder] = useState<number[]>([])
   const todosRef = useRef(todos)
+  // The manual order is kept in a ref so the sort helper never goes stale.
+  const orderRef = useRef<number[]>([])
+  const sortModeRef = useRef(settings.todoSort)
+  sortModeRef.current = settings.todoSort
+
+  /** Sort with the current mode and manual order. */
+  const sortBy = useCallback((list: Todo[]) => {
+    return sortTodos(list, sortModeRef.current, orderRef.current)
+  }, [])
 
   /** Update local state, the ref, and the module cache together. */
-  const commit = useCallback((next: Todo[]) => {
-    todosRef.current = next
-    todosCache = next
-    setTodos(next)
+  const commit = useCallback(
+    (next: Todo[]) => {
+      const ordered = sortBy(next)
+      todosRef.current = ordered
+      todosCache = ordered
+      setTodos(ordered)
+    },
+    [sortBy],
+  )
+
+  const persistOrder = useCallback((ids: number[]) => {
+    orderRef.current = ids
+    setOrder(ids)
+    void todoOrderStore.write(ids)
   }, [])
 
   const load = useCallback(async () => {
     try {
       setError(null)
-      commit(sortTodos((await store.list()).map(normalizeTodo)))
+      const [storedOrder, list] = await Promise.all([todoOrderStore.read(), store.list()])
+      orderRef.current = storedOrder
+      setOrder(storedOrder)
+      commit(list.map(normalizeTodo))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load tasks')
     } finally {
@@ -75,16 +99,18 @@ export function useTodos() {
   const create = useCallback(
     async (input: TodoInput) => {
       const created = await store.create(input)
-      commit(sortTodos([normalizeTodo(created), ...todosRef.current]))
+      // New tasks join the end of the manual order.
+      persistOrder([...orderRef.current, created.id])
+      commit([normalizeTodo(created), ...todosRef.current])
       return created
     },
-    [commit],
+    [commit, persistOrder],
   )
 
   const update = useCallback(
     async (id: number, input: TodoInput) => {
       const updated = await store.update(id, input)
-      commit(sortTodos(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t))))
+      commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
       return updated
     },
     [commit],
@@ -92,6 +118,7 @@ export function useTodos() {
 
   const remove = useCallback(
     async (id: number) => {
+      persistOrder(orderRef.current.filter((existing) => existing !== id))
       commit(todosRef.current.filter((t) => t.id !== id))
       try {
         await store.remove(id)
@@ -100,13 +127,13 @@ export function useTodos() {
         throw e
       }
     },
-    [commit, load],
+    [commit, load, persistOrder],
   )
 
   const archive = useCallback(
     async (id: number, archived: boolean) => {
       const updated = await store.archive(id, archived)
-      commit(sortTodos(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t))))
+      commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
       return updated
     },
     [commit],
@@ -117,7 +144,7 @@ export function useTodos() {
       setBusyId(id)
       try {
         const updated = await store.toggle(id)
-        commit(sortTodos(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t))))
+        commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
         return updated
       } finally {
         setBusyId(null)
@@ -126,5 +153,35 @@ export function useTodos() {
     [commit],
   )
 
-  return { todos, loading, error, busyId, create, update, remove, archive, toggle, reload: load }
+  /**
+   * Move a task one slot up/down in the manual order. The full visible order is
+   * captured first, so the swap always matches what the user sees.
+   */
+  const move = useCallback(
+    (id: number, delta: number) => {
+      const ids = todosRef.current.map((t) => t.id)
+      const from = ids.indexOf(id)
+      const to = from + delta
+      if (from < 0 || to < 0 || to >= ids.length) return
+      ;[ids[from], ids[to]] = [ids[to], ids[from]]
+      persistOrder(ids)
+      commit(todosRef.current)
+    },
+    [commit, persistOrder],
+  )
+
+  return {
+    todos,
+    order,
+    loading,
+    error,
+    busyId,
+    create,
+    update,
+    remove,
+    archive,
+    toggle,
+    move,
+    reload: load,
+  }
 }
