@@ -105,7 +105,11 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          # Install exactly what this project compiles against so the build
+          # doesn't depend on whatever happens to be on the runner image.
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
       - run: npm ci
       - run: npm run cap:sync
       - name: Decode signing keystore
