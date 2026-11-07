@@ -4,7 +4,43 @@ All notable changes to Bloom are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] — 2026-11-08
+
+### Added
+
+- **Habit quick add** — type a sentence such as “meditate every weekday
+  morning” and Bloom works out the schedule (daily, weekdays, weekends, named
+  days, or _N× a week_) and time of day, previewing what it understood.
+- **Settings sub-pages** — Settings is now a short list of topics (Reminders,
+  Sounds, Appearance, Habits & Tasks, Data & backups, Help, About), each showing
+  a live summary and opening its own page with a **Back to settings** control.
+- **Accessible habit reordering** — along with press-and-hold drag, habits can be
+  moved with dedicated **Move up** / **Move down** buttons.
+- **Shared category suggestions** — Habits and To-dos draw on one suggestion
+  list, and a task set to repeat now gently points you to Habits.
+- **First-completion hint** — a one-time coach line explains the streak and its
+  one-day grace the first time you have habits but nothing ticked.
+
+### Changed
+
+- **Calmer forms** — the Habit and To-do forms lead with the essentials and keep
+  the rest behind a **More options** disclosure.
+- **Gentler onboarding** — the terms gate now opens with a plain-language
+  summary and the full terms behind an optional disclosure, and the welcome tour
+  is trimmed to three slides.
+- **Calmer urgency** — overdue habits use a quiet amber label instead of a loud
+  countdown, and missed calendar days are neutral rather than red.
+- **Clearer Insights** — archived habits are excluded consistently, rate labels
+  read plainly, and the 30-day chart has a screen-reader summary.
+- **Quieter reminders** — a weekly habit stops reminding you once its weekly
+  target is met.
+- Android export now uses the system share sheet, so a backup can be saved to
+  Files, Drive or sent on.
+
+### Fixed
+
+- The Settings dialog could fail to close after visiting a sub-page.
+- Importing a snapshot is now transactional and preserves supported fields.
 
 ## [1.3.0] — 2026-11-06
 
