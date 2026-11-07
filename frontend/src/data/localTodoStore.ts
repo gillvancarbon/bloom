@@ -52,7 +52,12 @@ export const localTodoStore = {
   async replaceAll(todos: Todo[]): Promise<void> {
     const normalized = todos.map((todo) => normalizeTodo(todo))
     await writeAll(normalized)
-    const maxId = normalized.reduce((max, todo) => Math.max(max, todo.id), 0)
+    // Only finite numeric ids can seed the sequence; a malformed id must never
+    // turn the counter into NaN.
+    const maxId = normalized.reduce(
+      (max, todo) => (Number.isFinite(todo.id) ? Math.max(max, todo.id) : max),
+      0,
+    )
     await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
   },
 

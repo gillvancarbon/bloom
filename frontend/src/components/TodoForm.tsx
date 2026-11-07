@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
-import { CalendarDays, Clock, ListChecks, Plus, Repeat, Trash2, X } from 'lucide-react'
+import { CalendarDays, ChevronDown, Clock, ListChecks, Plus, Repeat, Trash2, X } from 'lucide-react'
 import type {
   Subtask,
   Todo,
@@ -39,6 +39,8 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
   const [subtasks, setSubtasks] = useState<Subtask[]>(todo?.subtasks ?? [])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Title + due date are all a quick task needs; the rest folds away on create.
+  const [showMore, setShowMore] = useState(mode === 'edit')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -53,6 +55,10 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  function addDays(base: Date, days: number): Date {
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate() + days)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -151,101 +157,125 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                        focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
           />
 
-          <div className="mt-4">
-            <span className="mb-2 block text-sm font-medium text-ink">Type</span>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {TODO_CATEGORIES.map((option) => {
-                const Icon = option.icon
-                const selected = category === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setCategory(option.id)}
-                    aria-pressed={selected}
-                    className={`flex items-center gap-2 rounded-calm-sm border px-3 py-2 text-sm font-medium
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            aria-expanded={showMore}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 hover:text-ink dark:text-sage-300"
+          >
+            <ChevronDown
+              className={`h-4 w-4 transition-transform duration-calm ease-calm ${
+                showMore ? 'rotate-180' : ''
+              }`}
+              aria-hidden
+            />
+            {showMore ? 'Hide options' : 'More options'}
+          </button>
+
+          {showMore && (
+            <>
+              <div className="mt-4">
+                <span className="mb-2 block text-sm font-medium text-ink">Type</span>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {TODO_CATEGORIES.map((option) => {
+                    const Icon = option.icon
+                    const selected = category === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setCategory(option.id)}
+                        aria-pressed={selected}
+                        className={`flex items-center gap-2 rounded-calm-sm border px-3 py-2 text-sm font-medium
                                 transition-all duration-calm ease-calm active:scale-[0.98]
                                 ${
                                   selected
                                     ? `${option.chip} border-transparent ring-2 ring-sage-400/40`
                                     : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
                                 }`}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+                      >
+                        <Icon className="h-4 w-4" aria-hidden />
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          <div className="mt-4">
-            <span className="mb-2 block text-sm font-medium text-ink">Priority</span>
-            <div className="grid grid-cols-3 gap-2">
-              {TODO_IMPORTANCE.map((option) => {
-                const Icon = option.icon
-                const selected = importance === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setImportance(option.id)}
-                    aria-pressed={selected}
-                    className={`flex items-center justify-center gap-1.5 rounded-calm-sm border px-3 py-2 text-sm font-medium
+              <div className="mt-4">
+                <span className="mb-2 block text-sm font-medium text-ink">Priority</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {TODO_IMPORTANCE.map((option) => {
+                    const Icon = option.icon
+                    const selected = importance === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setImportance(option.id)}
+                        aria-pressed={selected}
+                        className={`flex items-center justify-center gap-1.5 rounded-calm-sm border px-3 py-2 text-sm font-medium
                                 transition-all duration-calm ease-calm active:scale-[0.98]
                                 ${
                                   selected
                                     ? `${option.chip} border-transparent ring-2 ring-sage-400/40`
                                     : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
                                 }`}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+                      >
+                        <Icon className="h-4 w-4" aria-hidden />
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          <div className="mt-4">
-            <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
-              <Repeat className="h-4 w-4 text-muted" aria-hidden />
-              Repeat
-            </span>
-            <div className="grid grid-cols-4 gap-2">
-              {TODO_RECURRENCE.map((option) => {
-                const selected = recurrence === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => {
-                      setRecurrence(option.id)
-                      // A repeating task needs an anchor date to roll from.
-                      if (option.id !== 'none' && !dueDate) setDueDate(toISODate(new Date()))
-                    }}
-                    aria-pressed={selected}
-                    className={`rounded-calm-sm border px-2 py-2 text-sm font-medium
+              <div className="mt-4">
+                <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <Repeat className="h-4 w-4 text-muted" aria-hidden />
+                  Repeat
+                </span>
+                <div className="grid grid-cols-4 gap-2">
+                  {TODO_RECURRENCE.map((option) => {
+                    const selected = recurrence === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          setRecurrence(option.id)
+                          // A repeating task needs an anchor date to roll from.
+                          if (option.id !== 'none' && !dueDate) setDueDate(toISODate(new Date()))
+                        }}
+                        aria-pressed={selected}
+                        className={`rounded-calm-sm border px-2 py-2 text-sm font-medium
                                 transition-all duration-calm ease-calm active:scale-[0.98]
                                 ${
                                   selected
                                     ? 'border-transparent bg-sage-100 text-sage-700 ring-2 ring-sage-400/40 dark:bg-sage-900/50 dark:text-sage-200'
                                     : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
                                 }`}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-            {recurrence !== 'none' && (
-              <p className="mt-1.5 text-xs text-muted">
-                Completing it moves it to the next{' '}
-                {recurrence === 'daily' ? 'day' : recurrence === 'weekly' ? 'week' : 'month'}{' '}
-                instead of leaving it done.
-              </p>
-            )}
-          </div>
+                      >
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {recurrence !== 'none' && (
+                  <>
+                    <p className="mt-1.5 text-xs text-muted">
+                      Completing it moves it to the next{' '}
+                      {recurrence === 'daily' ? 'day' : recurrence === 'weekly' ? 'week' : 'month'}{' '}
+                      instead of leaving it done.
+                    </p>
+                    <p className="mt-1.5 text-xs text-muted">
+                      For something you want to build a streak around, a Habit may fit better.
+                    </p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="mt-4">
             <label htmlFor="todo-due" className="mb-2 block text-sm font-medium text-ink">
@@ -285,6 +315,23 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                 </button>
               )}
             </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              { label: 'Today', days: 0 },
+              { label: 'Tomorrow', days: 1 },
+              { label: 'Next week', days: 7 },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => setDueDate(toISODate(addDays(new Date(), chip.days)))}
+                className="silicone-quiet rounded-full px-3 py-1 text-xs font-medium text-muted hover:text-ink"
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {dueDate && (
@@ -327,70 +374,76 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
             </div>
           )}
 
-          <div className="mt-4">
-            <label htmlFor="todo-note" className="mb-2 block text-sm font-medium text-ink">
-              Note <span className="font-normal text-muted">(optional)</span>
-            </label>
-            <textarea
-              id="todo-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Anything worth remembering?"
-              maxLength={280}
-              rows={2}
-              className="w-full resize-none rounded-calm-sm border border-line bg-surface px-4 py-2.5
+          {showMore && (
+            <>
+              <div className="mt-4">
+                <label htmlFor="todo-note" className="mb-2 block text-sm font-medium text-ink">
+                  Note <span className="font-normal text-muted">(optional)</span>
+                </label>
+                <textarea
+                  id="todo-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Anything worth remembering?"
+                  maxLength={280}
+                  rows={2}
+                  className="w-full resize-none rounded-calm-sm border border-line bg-surface px-4 py-2.5
                          text-ink placeholder:text-muted/70
                          transition-all duration-calm ease-calm
                          focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
-            />
-          </div>
+                />
+              </div>
 
-          <div className="mt-4">
-            <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
-              <ListChecks className="h-4 w-4 text-muted" aria-hidden />
-              Steps <span className="font-normal text-muted">(optional)</span>
-            </span>
-            {subtasks.length > 0 && (
-              <ul className="mb-2 space-y-2">
-                {subtasks.map((subtask, index) => (
-                  <li key={subtask.id} className="flex items-center gap-2">
-                    <input
-                      value={subtask.title}
-                      onChange={(e) =>
-                        setSubtasks((prev) =>
-                          prev.map((s, i) => (i === index ? { ...s, title: e.target.value } : s)),
-                        )
-                      }
-                      placeholder={`Step ${index + 1}`}
-                      maxLength={120}
-                      aria-label={`Step ${index + 1}`}
-                      className="w-full rounded-calm-sm border border-line bg-surface px-3 py-2 text-sm
+              <div className="mt-4">
+                <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <ListChecks className="h-4 w-4 text-muted" aria-hidden />
+                  Steps <span className="font-normal text-muted">(optional)</span>
+                </span>
+                {subtasks.length > 0 && (
+                  <ul className="mb-2 space-y-2">
+                    {subtasks.map((subtask, index) => (
+                      <li key={subtask.id} className="flex items-center gap-2">
+                        <input
+                          value={subtask.title}
+                          onChange={(e) =>
+                            setSubtasks((prev) =>
+                              prev.map((s, i) =>
+                                i === index ? { ...s, title: e.target.value } : s,
+                              ),
+                            )
+                          }
+                          placeholder={`Step ${index + 1}`}
+                          maxLength={120}
+                          aria-label={`Step ${index + 1}`}
+                          className="w-full rounded-calm-sm border border-line bg-surface px-3 py-2 text-sm
                                  text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
                                  focus:ring-2 focus:ring-sage-400/30"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
-                      aria-label={`Remove step ${index + 1}`}
-                      className="silicone-quiet flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
+                          aria-label={`Remove step ${index + 1}`}
+                          className="silicone-quiet flex h-9 w-9 shrink-0 items-center justify-center rounded-full
                                  text-muted hover:text-peach-600 dark:hover:text-peach-300"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button
-              type="button"
-              onClick={() => setSubtasks((prev) => [...prev, newSubtask()])}
-              className="silicone-quiet inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSubtasks((prev) => [...prev, newSubtask()])}
+                  className="silicone-quiet inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium
                          text-muted hover:text-ink"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              Add a step
-            </button>
-          </div>
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add a step
+                </button>
+              </div>
+            </>
+          )}
 
           {error && (
             <p className="mt-4 rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">

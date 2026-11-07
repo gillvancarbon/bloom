@@ -1,6 +1,6 @@
 import type { Habit, HabitSchedule, WeekStart } from '../types'
 import { describeWeekdays } from './format'
-import { toISODate } from './streak'
+import { lastKeptDate, toISODate } from './streak'
 
 /** Always return a well-formed schedule. */
 export function normalizeSchedule(schedule: HabitSchedule | undefined): HabitSchedule {
@@ -108,4 +108,106 @@ export function scheduleProgress(habit: Habit, now: Date, weekStart: WeekStart):
 /** Whether the habit counts as complete for its current period. */
 export function isCompleteForPeriod(habit: Habit, now: Date, weekStart: WeekStart): boolean {
   return scheduleProgress(habit, now, weekStart).complete
+}
+
+/* ── Schedule-aware streaks ────────────────────────────────────────── */
+
+function parseISODate(dateISO: string): Date {
+  const [y, m, d] = dateISO.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+}
+
+/**
+ * How many scheduled occurrences the habit missed strictly after `fromISO` and
+ * strictly before `now` (today is never counted — it may still be completed).
+ *
+ * A "missed occurrence" is a scheduled day with no completion and no freeze, or
+ * a whole week that fell short of a "N× per week" target. Off-schedule days
+ * (e.g. the weekend of a weekday habit) are stepped over, not counted.
+ */
+export function scheduledOccurrencesMissed(
+  habit: Habit,
+  fromISO: string,
+  now: Date,
+  weekStart: WeekStart = 1,
+): number {
+  const schedule = normalizeSchedule(habit.schedule)
+
+  if (schedule.type === 'weekly') {
+    return missedWeeks(habit, fromISO, now, weekStart, schedule.perWeek)
+  }
+
+  const kept = new Set<string>([...habit.history, ...(habit.frozen ?? [])])
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const from = parseISODate(fromISO)
+
+  let missed = 0
+  for (let day = addDays(from, 1); day < today; day = addDays(day, 1)) {
+    if (schedule.type === 'weekdays' && !schedule.days.includes(day.getDay())) continue
+    if (!kept.has(toISODate(day))) missed += 1
+  }
+  return missed
+}
+
+/**
+ * Whole weeks that fell short of a "N× per week" target, between the week of
+ * `fromISO` and the week before `now`. The current (in-progress) week is never
+ * judged, and neither is the week of the last kept day — the streak keeps a
+ * one-week grace period, so a single slow week reads as `risk`, not `broken`.
+ */
+function missedWeeks(
+  habit: Habit,
+  fromISO: string,
+  now: Date,
+  weekStart: WeekStart,
+  perWeek: number,
+): number {
+  const fromWeek = weekRange(parseISODate(fromISO), weekStart).start
+  const nowWeek = weekRange(now, weekStart).start
+  const prevWeek = toISODate(addDays(parseISODate(nowWeek), -7))
+
+  // The last kept day is this week or last week: nothing full to judge yet.
+  if (fromWeek >= prevWeek) return 0
+  // A satisfied previous week keeps the streak intact, older misses aside.
+  if (completionsThisWeek(habit, parseISODate(prevWeek), weekStart) >= perWeek) return 0
+
+  let missed = 0
+  for (
+    let week = addDays(parseISODate(fromWeek), 7);
+    toISODate(week) <= prevWeek;
+    week = addDays(week, 7)
+  ) {
+    if (completionsThisWeek(habit, week, weekStart) < perWeek) missed += 1
+  }
+  return missed
+}
+
+export type StreakLevel = 'none' | 'safe' | 'risk' | 'broken'
+
+export interface StreakState {
+  level: StreakLevel
+  count: number
+}
+
+/**
+ * The streak keeps a one-occurrence grace period, measured against the habit's
+ * own schedule:
+ *   missed 0   → `safe`   (still on track, flame full size)
+ *   missed 1   → `risk`   (one scheduled day/week already missed — the flame
+ *                          shrinks to warn the streak resets if it's missed too)
+ *   missed 2+  → `broken` (the streak has reset)
+ */
+export function streakState(habit: Habit, now: Date, weekStart: WeekStart = 1): StreakState {
+  // Frozen days count as kept, so the gap is measured from the last kept day.
+  const last = lastKeptDate(habit)
+  if (!last) return { level: 'none', count: 0 }
+
+  const missed = scheduledOccurrencesMissed(habit, last, now, weekStart)
+  if (missed >= 2) return { level: 'broken', count: 0 }
+  if (missed === 1) return { level: 'risk', count: habit.streakCount }
+  return { level: 'safe', count: habit.streakCount }
 }

@@ -4,6 +4,7 @@ import { normalizeHabit } from './lib/habit'
 const BASE = '/api/habits'
 const CALENDAR = '/api/calendar'
 const TODOS = '/api/todos'
+const DATA = '/api/data'
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -77,6 +78,18 @@ export const api = {
     fetch(CALENDAR)
       .then((r) => handle<{ historyStart: string }>(r))
       .then((d) => d.historyStart),
+
+  /** Whole-dataset operations, both transactional on the server. */
+  data: {
+    clear: () => fetch(DATA, { method: 'DELETE' }).then((r) => handle<void>(r)),
+
+    import: (bundle: { habits: Habit[]; todos: Todo[] }) =>
+      fetch(`${DATA}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bundle),
+      }).then((r) => handle<void>(r)),
+  },
 
   todos: {
     list: () => fetch(TODOS).then((r) => handle<Todo[]>(r)),

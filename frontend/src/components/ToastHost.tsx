@@ -30,9 +30,10 @@ export function ToastHost() {
 
   return (
     <Portal>
+      {/* Sits above the undo snackbar so the two never overlap. */}
       <div
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4"
-        style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+        style={{ paddingBottom: 'calc(9.5rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <AnimatePresence>
           {toast && (

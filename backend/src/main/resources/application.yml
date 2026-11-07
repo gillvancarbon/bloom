@@ -1,5 +1,7 @@
 server:
   port: 8080
+  # Bind loopback by default so a dev machine isn't exposed on the network.
+  address: ${SERVER_ADDRESS:127.0.0.1}
 
 spring:
   application:

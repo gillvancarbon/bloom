@@ -1,6 +1,7 @@
 import { Preferences } from '@capacitor/preferences'
 import type { Habit, HabitInput } from '../types'
-import { daysSince, lastKeptDate, toISODate, todayISO } from '../lib/streak'
+import { lastKeptDate, todayISO } from '../lib/streak'
+import { scheduledOccurrencesMissed } from '../lib/schedule'
 import { normalizeHabit } from '../lib/habit'
 
 /**
@@ -38,17 +39,17 @@ async function nextId(): Promise<number> {
 
 function increment(habit: Habit): Habit {
   const today = todayISO()
-  // Measure the gap from the last kept day (completed or frozen), so a frozen
-  // missed day doesn't reset the streak.
+  // Measure the missed occurrences from the last kept day (completed or frozen)
+  // against the habit's own schedule, so an off-schedule weekend doesn't reset a
+  // weekday habit and a frozen day doesn't reset a daily one.
   const last = lastKeptDate(habit)
-  const gap = last ? daysSince(last, new Date()) : null
-  let streak = habit.streakCount
-  if (gap === null) streak = 1
-  else if (gap <= 1)
-    streak += 1 // yesterday (or already today) — on track
-  else if (gap === 2)
-    streak += 1 // one day missed — single grace day keeps it
-  else streak = 1 // two or more days missed — streak resets
+  const missed = last ? scheduledOccurrencesMissed(habit, last, new Date(), 1) : 0
+  let streak: number
+  if (!last)
+    streak = 1 // first ever completion
+  else if (missed >= 2)
+    streak = 1 // two or more occurrences missed — reset
+  else streak = habit.streakCount + 1 // on track, or a single grace occurrence
   const history = Array.from(new Set([...habit.history, today])).sort()
   return { ...habit, streakCount: streak, lastCompletedDate: today, history }
 }
@@ -57,14 +58,12 @@ function toggle(habit: Habit): Habit {
   const today = todayISO()
   if (habit.lastCompletedDate === today) {
     const streak = Math.max(0, habit.streakCount - 1)
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    return {
-      ...habit,
-      streakCount: streak,
-      lastCompletedDate: streak > 0 ? toISODate(yesterday) : null,
-      history: habit.history.filter((d) => d !== today),
-    }
+    // Undo only today's completion. The last completed date must fall back to
+    // the newest remaining history entry (never a fabricated "yesterday", which
+    // would claim a completion that never happened).
+    const history = habit.history.filter((d) => d !== today)
+    const lastCompletedDate = history.length ? history[history.length - 1] : null
+    return { ...habit, streakCount: streak, lastCompletedDate, history }
   }
   return increment(habit)
 }
@@ -86,7 +85,12 @@ export const localStore = {
   async replaceAll(habits: Habit[]): Promise<void> {
     const normalized = habits.map((habit) => normalizeHabit(habit))
     await writeAll(normalized)
-    const maxId = normalized.reduce((max, habit) => Math.max(max, habit.id), 0)
+    // Only finite numeric ids can seed the sequence; a malformed id must never
+    // turn the counter into NaN.
+    const maxId = normalized.reduce(
+      (max, habit) => (Number.isFinite(habit.id) ? Math.max(max, habit.id) : max),
+      0,
+    )
     await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
   },
 

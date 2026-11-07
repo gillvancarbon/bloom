@@ -96,11 +96,25 @@ public class TodoService {
             next = switch (recurrence) {
                 case "daily" -> next.plusDays(1);
                 case "weekly" -> next.plusWeeks(1);
-                case "monthly" -> next.plusMonths(1);
+                case "monthly" -> nextMonthly(next);
                 default -> next.plusDays(1);
             };
             guard++;
         } while (!next.isAfter(today) && guard < 1000);
+        return next;
+    }
+
+    /**
+     * The next monthly date without drifting at month ends. A month-end date
+     * (Jan 31) rolls to the next month's last day (Feb 28, then Mar 31) rather
+     * than being clamped and staying there; other dates keep their day, clamped
+     * to the target month's length.
+     */
+    static LocalDate nextMonthly(LocalDate date) {
+        LocalDate next = date.plusMonths(1);
+        if (date.getDayOfMonth() == date.lengthOfMonth()) {
+            return next.withDayOfMonth(next.lengthOfMonth());
+        }
         return next;
     }
 

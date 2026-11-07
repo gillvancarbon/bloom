@@ -37,32 +37,6 @@ export function lastKeptDate(habit: Habit): string | null {
   return kept.length ? kept[kept.length - 1] : null
 }
 
-/* ── Streak state (one-day grace period) ───────────────────────────── */
-
-export type StreakLevel = 'none' | 'safe' | 'risk' | 'broken'
-
-export interface StreakState {
-  level: StreakLevel
-  count: number
-}
-
-/**
- * The streak keeps a one-day grace period:
- *   gap 0–1 days → `safe`   (still on track, flame full size)
- *   gap 2 days   → `risk`   (one day already missed — flame shrinks to warn
- *                            that the streak resets if today is missed too)
- *   gap 3+ days  → `broken` (two days missed — the streak resets)
- */
-export function streakState(habit: Habit, now: Date): StreakState {
-  // Frozen days count as kept, so the gap is measured from the last kept day.
-  const last = lastKeptDate(habit)
-  if (!last) return { level: 'none', count: 0 }
-  const gap = daysSince(last, now)
-  if (gap >= 3) return { level: 'broken', count: 0 }
-  if (gap === 2) return { level: 'risk', count: habit.streakCount }
-  return { level: 'safe', count: habit.streakCount }
-}
-
 /* ── Deadline countdown ────────────────────────────────────────────── */
 
 export type DeadlineLevel = 'calm' | 'near' | 'overdue'

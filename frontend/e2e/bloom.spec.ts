@@ -163,11 +163,16 @@ test('settings: reminder self-check works and the guidance switch persists', asy
   await page.getByRole('button', { name: 'Open settings' }).click()
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
+  await page.getByRole('button', { name: /^Reminders/ }).click()
+  await expect(page.getByRole('heading', { name: 'Reminders' })).toBeVisible()
   await expect(page.getByText(/Reminders only fire while this tab stays open/)).toBeVisible()
   await page.getByRole('button', { name: 'Send test' }).click()
   await expect(page.getByText(/Test sent/)).toBeVisible()
 
+  await page.getByRole('button', { name: 'Back to settings' }).click()
+  await page.getByRole('button', { name: /^Habits & Tasks/ }).click()
   await page.getByRole('switch', { name: 'Quick add guidance' }).click()
+  await page.getByRole('button', { name: 'Back to settings' }).click()
   await page.getByRole('button', { name: 'Close settings' }).click()
 
   await openTodos(page)
@@ -251,6 +256,7 @@ test('long lists mount a page at a time', async ({ page }) => {
 test('import: a valid snapshot restores tasks', async ({ page }) => {
   await seedUser(page)
   await page.getByRole('button', { name: 'Open settings' }).click()
+  await page.getByRole('button', { name: /^Data & backups/ }).click()
 
   const bundle = {
     app: 'Bloom',
@@ -269,6 +275,7 @@ test('import: a valid snapshot restores tasks', async ({ page }) => {
   await expect(confirmDialog).toBeVisible()
   await confirmDialog.getByRole('button', { name: 'Import', exact: true }).click()
 
+  await page.getByRole('button', { name: 'Back to settings' }).click()
   await page.getByRole('button', { name: 'Close settings' }).click()
   await openTodos(page)
   await expect(page.getByRole('heading', { name: 'Imported task' })).toBeVisible()
@@ -277,6 +284,7 @@ test('import: a valid snapshot restores tasks', async ({ page }) => {
 test('import: a newer-version file is refused', async ({ page }) => {
   await seedUser(page)
   await page.getByRole('button', { name: 'Open settings' }).click()
+  await page.getByRole('button', { name: /^Data & backups/ }).click()
 
   const bundle = { app: 'Bloom', schemaVersion: 99, habits: [], todos: [] }
   await page.locator('input[type="file"]').setInputFiles({
@@ -293,6 +301,7 @@ test('settings: diagnostics download contains counts, not content', async ({ pag
   await seedUser(page)
   await seedTodos(page, [todo({ id: 1, title: 'Secret title', dueDate: isoOffset(0) })])
   await page.getByRole('button', { name: 'Open settings' }).click()
+  await page.getByRole('button', { name: /^Data & backups/ }).click()
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),

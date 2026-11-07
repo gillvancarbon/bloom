@@ -22,6 +22,12 @@ export function useTodos() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [order, setOrder] = useState<number[]>([])
   const todosRef = useRef(todos)
+  /**
+   * Bumped whenever a mutation commits. `load()` captures this before its
+   * async read and skips the commit if it changed in the meantime, so a slow
+   * read can never overwrite a newer local mutation.
+   */
+  const mutationVersion = useRef(0)
   // The manual order is kept in a ref so the sort helper never goes stale.
   const orderRef = useRef<number[]>([])
   const sortModeRef = useRef(settings.todoSort)
@@ -52,7 +58,10 @@ export function useTodos() {
   const load = useCallback(async () => {
     try {
       setError(null)
+      const version = mutationVersion.current
       const [storedOrder, list] = await Promise.all([todoOrderStore.read(), store.list()])
+      // A mutation landed while we were reading — its state is newer than this.
+      if (mutationVersion.current !== version) return
       orderRef.current = storedOrder
       setOrder(storedOrder)
       commit(list.map(normalizeTodo))
@@ -100,6 +109,7 @@ export function useTodos() {
     async (input: TodoInput) => {
       const created = await store.create(input)
       // New tasks join the end of the manual order.
+      mutationVersion.current += 1
       persistOrder([...orderRef.current, created.id])
       commit([normalizeTodo(created), ...todosRef.current])
       return created
@@ -110,6 +120,7 @@ export function useTodos() {
   const update = useCallback(
     async (id: number, input: TodoInput) => {
       const updated = await store.update(id, input)
+      mutationVersion.current += 1
       commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
       return updated
     },
@@ -118,6 +129,7 @@ export function useTodos() {
 
   const remove = useCallback(
     async (id: number) => {
+      mutationVersion.current += 1
       persistOrder(orderRef.current.filter((existing) => existing !== id))
       commit(todosRef.current.filter((t) => t.id !== id))
       try {
@@ -133,6 +145,7 @@ export function useTodos() {
   const archive = useCallback(
     async (id: number, archived: boolean) => {
       const updated = await store.archive(id, archived)
+      mutationVersion.current += 1
       commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
       return updated
     },
@@ -144,6 +157,7 @@ export function useTodos() {
       setBusyId(id)
       try {
         const updated = await store.toggle(id)
+        mutationVersion.current += 1
         commit(todosRef.current.map((t) => (t.id === id ? normalizeTodo(updated) : t)))
         return updated
       } finally {
@@ -164,6 +178,7 @@ export function useTodos() {
       const to = from + delta
       if (from < 0 || to < 0 || to >= ids.length) return
       ;[ids[from], ids[to]] = [ids[to], ids[from]]
+      mutationVersion.current += 1
       persistOrder(ids)
       commit(todosRef.current)
     },

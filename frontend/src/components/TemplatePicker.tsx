@@ -143,7 +143,7 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
               >
                 {saving
                   ? 'Adding…'
-                  : `Add ${selected.size || ''} habit${selected.size === 1 ? '' : 's'}`}
+                  : `Add ${selected.size || ''} habit${selected.size === 1 ? '' : 's'} and start`}
               </button>
             </div>
           </div>

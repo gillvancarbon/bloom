@@ -77,15 +77,35 @@ describe('parseBundle', () => {
     expect(bundle.todos[0].subtasks).toHaveLength(1)
   })
 
-  it('accepts a bare object with just habits or just tasks', () => {
-    expect(parseBundle('{"todos":[]}')).toEqual({ habits: [], todos: [] })
-    expect(parseBundle('{"habits":[{"id":1,"name":"Read"}]}').habits[0].name).toBe('Read')
+  it('rejects a partial bundle instead of silently wiping the other collection', () => {
+    expect(() => parseBundle('{"todos":[]}')).toThrow(/needs both habits and tasks/)
+    expect(() => parseBundle('{"habits":[{"id":1,"name":"Read"}]}')).toThrow(
+      /needs both habits and tasks/,
+    )
   })
 
   it('rejects invalid JSON and unrelated files', () => {
     expect(() => parseBundle('not json')).toThrow(/valid JSON/)
     expect(() => parseBundle('[1,2,3]')).toThrow(/Bloom export/)
     expect(() => parseBundle('{"hello":"world"}')).toThrow(/habits or tasks/)
+  })
+
+  it('rejects records without a valid id, or with duplicate ids', () => {
+    expect(() => parseBundle('{"habits":[{"id":0,"name":"A"}],"todos":[]}')).toThrow(
+      /habit without a valid id/,
+    )
+    expect(() => parseBundle('{"habits":[{"name":"A"}],"todos":[]}')).toThrow(
+      /habit without a valid id/,
+    )
+    expect(() =>
+      parseBundle('{"habits":[{"id":1,"name":"A"},{"id":1,"name":"B"}],"todos":[]}'),
+    ).toThrow(/more than one habit with id 1/)
+    expect(() => parseBundle('{"habits":[],"todos":[{"id":-2,"title":"T"}]}')).toThrow(
+      /task without a valid id/,
+    )
+    expect(() =>
+      parseBundle('{"habits":[],"todos":[{"id":3,"title":"A"},{"id":3,"title":"B"}]}'),
+    ).toThrow(/more than one task with id 3/)
   })
 
   it('refuses a snapshot written by a newer version', () => {
@@ -105,7 +125,8 @@ describe('parseBundle', () => {
   })
 
   it('treats a snapshot with no version as the original format', () => {
-    const bundle = parseBundle('{"app":"Bloom","todos":[]}')
+    const bundle = parseBundle('{"app":"Bloom","habits":[],"todos":[]}')
+    expect(bundle.habits).toEqual([])
     expect(bundle.todos).toEqual([])
   })
 })

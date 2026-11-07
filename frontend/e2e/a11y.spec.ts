@@ -48,11 +48,17 @@ test('accessibility: settings, guide and about', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
   await expectClean(page)
 
+  // Help and About are rows on the landing list; each opens its own sub-page.
+  await page.getByRole('button', { name: /^Help/ }).click()
+  await expect(page.getByRole('heading', { name: 'Help' })).toBeVisible()
   await page.getByRole('button', { name: 'Open guide' }).click()
   await expect(page.getByRole('dialog', { name: 'How to use Bloom' })).toBeVisible()
   await expectClean(page)
   await page.getByRole('button', { name: 'Close guide' }).click()
 
+  await page.getByRole('button', { name: 'Back to settings' }).click()
+  await page.getByRole('button', { name: /^About/ }).click()
+  await expect(page.getByRole('heading', { name: 'About' })).toBeVisible()
   await page.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'About Bloom' })).toBeVisible()
   await expectClean(page)

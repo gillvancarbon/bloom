@@ -33,6 +33,12 @@ export function useHabits() {
 
   const habitsRef = useRef(habits)
   const startRef = useRef(historyStart)
+  /**
+   * Bumped whenever a mutation commits. `load()` captures this before its
+   * async read and skips the commit if it changed in the meantime, so a slow
+   * read can never overwrite a newer local mutation.
+   */
+  const mutationVersion = useRef(0)
 
   /** Update local state, the ref, and the module cache together. */
   const commit = useCallback((next: Habit[], start: string | null = startRef.current) => {
@@ -64,10 +70,13 @@ export function useHabits() {
   const load = useCallback(async () => {
     try {
       setError(null)
+      const version = mutationVersion.current
       const [data, start] = await Promise.all([
         store.list(),
         store.historyStart().catch(() => null),
       ])
+      // A mutation landed while we were reading — its state is newer than this.
+      if (mutationVersion.current !== version) return
       commit(data, start)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load habits')
@@ -99,6 +108,7 @@ export function useHabits() {
           ? { ...input, reminderOffset: settings.defaultReminderOffset }
           : input
       const created = await store.create(withReminder)
+      mutationVersion.current += 1
       commit([created, ...habitsRef.current])
       return created
     },
@@ -108,6 +118,7 @@ export function useHabits() {
   const update = useCallback(
     async (id: number, input: HabitInput) => {
       const updated = await store.update(id, input)
+      mutationVersion.current += 1
       commit(habitsRef.current.map((h) => (h.id === id ? updated : h)))
       return updated
     },
@@ -118,6 +129,7 @@ export function useHabits() {
     async (id: number) => {
       // Drop it from the UI/cache immediately, then persist. If the write
       // fails we reload so the list can't silently drift from the device.
+      mutationVersion.current += 1
       commit(habitsRef.current.filter((h) => h.id !== id))
       try {
         await store.remove(id)
@@ -132,6 +144,7 @@ export function useHabits() {
   const archive = useCallback(
     async (id: number, archived: boolean) => {
       const updated = await store.archive(id, archived)
+      mutationVersion.current += 1
       commit(habitsRef.current.map((h) => (h.id === id ? updated : h)))
       return updated
     },
@@ -141,6 +154,7 @@ export function useHabits() {
   const reorder = useCallback(
     async (ids: number[]) => {
       const next = await store.reorder(ids)
+      mutationVersion.current += 1
       commit(next)
     },
     [commit],
@@ -151,6 +165,7 @@ export function useHabits() {
       setBusyId(id)
       try {
         const updated = await store.toggle(id)
+        mutationVersion.current += 1
         commit(habitsRef.current.map((h) => (h.id === id ? updated : h)))
         return updated
       } finally {
@@ -169,6 +184,7 @@ export function useHabits() {
       const date = nextFreezeDate(habit, new Date())
       if (!date) return
       const updated = await store.freeze(id, date)
+      mutationVersion.current += 1
       commit(habitsRef.current.map((h) => (h.id === id ? updated : h)))
       updateSettings({ freezeTokens: Math.max(0, settings.freezeTokens - 1) })
     },

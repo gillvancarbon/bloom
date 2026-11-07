@@ -7,9 +7,11 @@ import {
   normalizeSchedule,
   scheduleLabel,
   scheduleProgress,
+  scheduledOccurrencesMissed,
   scheduledOn,
   scheduledOrCompletedToday,
   scheduledToday,
+  streakState,
   weekRange,
 } from './schedule'
 import { toISODate } from './streak'
@@ -168,5 +170,88 @@ describe('daily completion', () => {
     const today = toISODate(NOW)
     expect(isCompleteForPeriod(habit({ id: 6, history: [today] }), NOW, MONDAY)).toBe(true)
     expect(isCompleteForPeriod(habit({ id: 7, history: [] }), NOW, MONDAY)).toBe(false)
+  })
+})
+
+describe('scheduledOccurrencesMissed', () => {
+  it('steps over off-schedule days for a weekday habit', () => {
+    const h = habit({
+      id: 30,
+      schedule: { type: 'weekdays', days: [1, 2, 3, 4, 5] },
+      history: ['2026-06-05'], // Friday
+    })
+    const monday = new Date(2026, 5, 8, 12, 0, 0)
+    expect(scheduledOccurrencesMissed(h, '2026-06-05', monday, MONDAY)).toBe(0)
+  })
+
+  it('counts scheduled days that were skipped', () => {
+    const h = habit({
+      id: 31,
+      schedule: { type: 'weekdays', days: [1, 2, 3, 4, 5] },
+      history: ['2026-06-08'], // Monday
+    })
+    // Tuesday and Wednesday (today is excluded) are both scheduled and missed.
+    expect(scheduledOccurrencesMissed(h, '2026-06-08', new Date(2026, 5, 10, 12), MONDAY)).toBe(1)
+    expect(scheduledOccurrencesMissed(h, '2026-06-08', new Date(2026, 5, 11, 12), MONDAY)).toBe(2)
+  })
+})
+
+describe('streakState (schedule-aware)', () => {
+  it('keeps a weekday habit safe across a weekend', () => {
+    const h = habit({
+      id: 40,
+      schedule: { type: 'weekdays', days: [1, 2, 3, 4, 5] },
+      history: ['2026-06-05'], // Friday
+      streakCount: 4,
+    })
+    const monday = new Date(2026, 5, 8, 12, 0, 0)
+    expect(streakState(h, monday, MONDAY)).toEqual({ level: 'safe', count: 4 })
+  })
+
+  it('flags one missed scheduled day as risk', () => {
+    const h = habit({
+      id: 41,
+      schedule: { type: 'weekdays', days: [1, 2, 3, 4, 5] },
+      history: ['2026-06-08'], // Monday; Tuesday missed, now Wednesday
+      streakCount: 6,
+    })
+    expect(streakState(h, NOW, MONDAY)).toEqual({ level: 'risk', count: 6 })
+  })
+
+  it('breaks a daily habit after two missed days', () => {
+    const h = habit({ id: 42, history: ['2026-06-07'], streakCount: 9 })
+    expect(streakState(h, NOW, MONDAY)).toEqual({ level: 'broken', count: 0 })
+  })
+
+  it('reports none for a habit with no history', () => {
+    expect(streakState(habit({ id: 43 }), NOW, MONDAY)).toEqual({ level: 'none', count: 0 })
+  })
+
+  it('is safe while a weekly target last succeeded this week or last week', () => {
+    const h = habit({
+      id: 50,
+      schedule: { type: 'weekly', perWeek: 3 },
+      history: ['2026-06-05'], // the previous week
+      streakCount: 2,
+    })
+    expect(streakState(h, NOW, MONDAY)).toEqual({ level: 'safe', count: 2 })
+  })
+
+  it('flags one missed full week as risk and two as broken', () => {
+    const oneWeek = habit({
+      id: 51,
+      schedule: { type: 'weekly', perWeek: 3 },
+      history: ['2026-05-29'], // two weeks before the current one
+      streakCount: 2,
+    })
+    expect(streakState(oneWeek, NOW, MONDAY)).toEqual({ level: 'risk', count: 2 })
+
+    const twoWeeks = habit({
+      id: 52,
+      schedule: { type: 'weekly', perWeek: 3 },
+      history: ['2026-05-22'],
+      streakCount: 7,
+    })
+    expect(streakState(twoWeeks, NOW, MONDAY)).toEqual({ level: 'broken', count: 0 })
   })
 })

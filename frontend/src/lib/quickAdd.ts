@@ -110,6 +110,20 @@ function normalizeTime(hours: number, minutes: number, meridiem?: string): strin
   return `${String(h).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
+/**
+ * Whether (year, month, day) is a real calendar date. `new Date` silently rolls
+ * overflow forward (31 Feb → 3 Mar), so a round-trip mismatch means the text
+ * named a day that doesn't exist.
+ */
+function isRealDate(date: Date, year: number, month: number, day: number): boolean {
+  return (
+    Number.isFinite(date.getTime()) &&
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  )
+}
+
 function cleanTitle(value: string): string {
   return value
     .replace(/\s+/g, ' ')
@@ -216,8 +230,11 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
   let dueDate: string | null = null
 
   rest = rest.replace(/\s(\d{4})-(\d{2})-(\d{2})\b/, (match, y: string, mo: string, d: string) => {
-    const date = new Date(Number(y), Number(mo) - 1, Number(d))
-    if (Number.isNaN(date.getTime())) return match
+    const year = Number(y)
+    const month = Number(mo)
+    const day = Number(d)
+    const date = new Date(year, month - 1, day)
+    if (!isRealDate(date, year, month, day)) return match
     dueDate = toISODate(date)
     return ' '
   })
@@ -234,8 +251,11 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
     /\s(\d{1,2})\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\b/i,
     (match, d: string, name: string) => {
       const month = MONTHS[name.toLowerCase()]
-      const date = new Date(today.getFullYear(), month, Number(d))
-      if (month === undefined || Number.isNaN(date.getTime())) return match
+      if (month === undefined) return match
+      const day = Number(d)
+      const year = today.getFullYear()
+      const date = new Date(year, month, day)
+      if (!isRealDate(date, year, month + 1, day)) return match
       dueDate = toISODate(date)
       return ' '
     },
@@ -244,8 +264,11 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
     /\s(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})\b/i,
     (match, name: string, d: string) => {
       const month = MONTHS[name.toLowerCase()]
-      const date = new Date(today.getFullYear(), month, Number(d))
-      if (month === undefined || Number.isNaN(date.getTime())) return match
+      if (month === undefined) return match
+      const day = Number(d)
+      const year = today.getFullYear()
+      const date = new Date(year, month, day)
+      if (!isRealDate(date, year, month + 1, day)) return match
       dueDate = toISODate(date)
       return ' '
     },
@@ -254,8 +277,10 @@ export function parseQuickAdd(text: string, from: Date = new Date()): QuickAddRe
     /\s(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/,
     (match, d: string, mo: string, y?: string) => {
       const year = y ? (y.length === 2 ? 2000 + Number(y) : Number(y)) : today.getFullYear()
-      const date = new Date(year, Number(mo) - 1, Number(d))
-      if (Number.isNaN(date.getTime())) return match
+      const day = Number(d)
+      const month = Number(mo)
+      const date = new Date(year, month - 1, day)
+      if (!isRealDate(date, year, month, day)) return match
       dueDate = toISODate(date)
       return ' '
     },

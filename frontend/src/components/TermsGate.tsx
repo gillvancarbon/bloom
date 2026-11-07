@@ -6,11 +6,13 @@ import { useSettings } from '../context/SettingsContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { exitApp } from '../lib/appControl'
 import { LINKS } from '../lib/appInfo'
-import { TERMS_SECTIONS, TERMS_SUMMARY, TERMS_UPDATED, TERMS_VERSION } from '../lib/legal'
+import { TERMS_SECTIONS, TERMS_UPDATED, TERMS_VERSION } from '../lib/legal'
 
 /**
- * A hard gate shown to a brand-new user before the app is usable. The only way
- * past it is to read the terms and tick the box; declining closes the app.
+ * A hard gate shown to a brand-new user before the app is usable. A short
+ * plain-language summary keeps the promise clear, while the full terms sit
+ * behind an optional disclosure. The only way past is to tick the box; the act
+ * of reading is optional, but the agreement is not. Declining closes the app.
  * There is deliberately no backdrop tap, close button or skip. Escape is left
  * alone so a stray keypress can't close the app during first-run.
  */
@@ -18,6 +20,7 @@ export function TermsGate() {
   const { update } = useSettings()
   const [agreed, setAgreed] = useState(false)
   const [declined, setDeclined] = useState(false)
+  const [showFullTerms, setShowFullTerms] = useState(false)
   const trapRef = useFocusTrap<HTMLDivElement>()
 
   function accept() {
@@ -96,11 +99,59 @@ export function TermsGate() {
             </div>
           </div>
 
-          <p id="terms-summary" className="mt-3 text-sm leading-relaxed text-muted">
-            {TERMS_SUMMARY}
-          </p>
+          <div id="terms-summary" className="mt-4 space-y-3">
+            <p className="flex items-start gap-2.5 text-sm leading-relaxed text-muted">
+              <ShieldCheck
+                className="mt-0.5 h-4 w-4 shrink-0 text-sage-500 dark:text-sage-300"
+                aria-hidden
+              />
+              <span>
+                <strong className="font-semibold text-ink">Private by design.</strong> Your habits,
+                tasks and settings stay on your device. There is no account, and nothing is sent to
+                us.
+              </span>
+            </p>
+            <ul className="space-y-1.5 text-sm leading-relaxed text-muted">
+              <li className="flex items-start gap-2.5">
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-sage-500 dark:text-sage-300"
+                  aria-hidden
+                />
+                <span>Free for personal, noncommercial use.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-sage-500 dark:text-sage-300"
+                  aria-hidden
+                />
+                <span>A wellbeing tool, not a medical device or medical advice.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-sage-500 dark:text-sage-300"
+                  aria-hidden
+                />
+                <span>Provided “as is”, without warranties.</span>
+              </li>
+            </ul>
+          </div>
 
-          <div className="mt-4 space-y-4 rounded-calm border border-line bg-raised p-4 shadow-calm">
+          <button
+            type="button"
+            onClick={() => setShowFullTerms((open) => !open)}
+            aria-expanded={showFullTerms}
+            aria-controls="terms-full"
+            className="silicone-quiet mt-3 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-2 text-sm font-semibold text-sage-600 hover:text-sage-700 dark:text-sage-300 dark:hover:text-mint-100"
+          >
+            <ScrollText className="h-4 w-4" aria-hidden />
+            {showFullTerms ? 'Hide the full terms' : 'Read the full terms'}
+          </button>
+
+          <div
+            id="terms-full"
+            hidden={!showFullTerms}
+            className="mt-3 space-y-4 rounded-calm border border-line bg-raised p-4 shadow-calm"
+          >
             {TERMS_SECTIONS.map((section) => (
               <section key={section.title}>
                 <h2 className="text-sm font-semibold text-ink">{section.title}</h2>
@@ -111,16 +162,17 @@ export function TermsGate() {
                 ))}
               </section>
             ))}
-            <a
-              href={LINKS.privacy}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-sage-600 hover:underline dark:text-sage-300"
-            >
-              <ShieldCheck className="h-4 w-4" aria-hidden />
-              Read the full Privacy Policy
-            </a>
           </div>
+
+          <a
+            href={LINKS.privacy}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-semibold text-sage-600 hover:underline dark:text-sage-300"
+          >
+            <ShieldCheck className="h-4 w-4" aria-hidden />
+            Read the full Privacy Policy
+          </a>
 
           <div className="mt-4 pb-8">
             <label className="flex cursor-pointer items-start gap-3 rounded-calm border border-line bg-surface p-3.5">
@@ -140,8 +192,8 @@ export function TermsGate() {
                 <Check className="h-3.5 w-3.5" />
               </span>
               <span className="text-sm text-ink">
-                I have read and agree to the <strong>Terms of Use</strong> and the{' '}
-                <strong>Privacy Policy</strong>.
+                I agree to the <strong>Terms of Use</strong> and the <strong>Privacy Policy</strong>
+                .
               </span>
             </label>
 

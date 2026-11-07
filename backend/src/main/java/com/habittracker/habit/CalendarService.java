@@ -30,4 +30,9 @@ public class CalendarService {
                     return today;
                 });
     }
+
+    /** Restart consistency tracking from today (used when data is cleared or replaced). */
+    public void resetHistoryStart() {
+        appMetaRepository.save(new AppMeta(HISTORY_START_KEY, LocalDate.now().toString()));
+    }
 }

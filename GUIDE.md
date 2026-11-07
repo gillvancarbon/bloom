@@ -207,8 +207,9 @@ you.
 - **Backups** — Bloom takes a daily automatic backup and lets you make one on
   demand. Restore any point with one tap; a safety snapshot is taken first.
 - **Export and import** — export a full JSON snapshot from **Settings → Data &
-  backups**, and import one back on the same screen. Import replaces the current
-  habits and tasks after taking a safety backup.
+  backups**, and import one back on the same screen. On Android, export opens the
+  system share sheet, where you can save the file to Files, Drive or another app.
+  Import replaces the current habits and tasks after taking a safety backup.
 - **Clear all** — resets the habits and tasks without touching your settings or
   backups.
 

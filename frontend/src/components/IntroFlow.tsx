@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Bell, Check, Flame, Layers, Leaf, Sparkles } from 'lucide-react'
+import { ArrowRight, Flame, Layers, Leaf, Sparkles } from 'lucide-react'
 import { Portal } from './Portal'
-import { useSettings } from '../context/SettingsContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-import { requestNotificationPermission } from '../lib/notifications'
 
 interface IntroFlowProps {
   /** Called once the tour ends. `openTemplates` asks for the habit templates. */
@@ -31,22 +29,12 @@ const SLIDES: Slide[] = [
   {
     Icon: Flame,
     title: 'Build gentle streaks',
-    body: 'Check a habit off each day to grow its flame. Miss a day and a one-day grace keeps it alive — and when life gets busy you can spend a streak freeze.',
+    body: 'Check a habit off each day to grow its flame. Miss a day and a one-day grace keeps it alive, so a single slip won’t undo your progress.',
   },
   {
     Icon: Layers,
-    title: 'Shape your day',
-    body: 'Habits sit in Morning, Afternoon, Evening or Anytime — tap a chip or swipe to move between them. Your tasks live in the second tab.',
-  },
-  {
-    Icon: Bell,
-    title: 'Reminders that act',
-    body: 'Get a nudge before a habit’s deadline or when a task is due. Reminders carry Complete and Snooze actions, so you can deal with them without opening Bloom.',
-  },
-  {
-    Icon: Sparkles,
-    title: 'You’re all set',
-    body: 'That’s the whole tour. Want a head start with a few ready-made habits? You can always change them later.',
+    title: 'Tasks and quick-add',
+    body: 'Your to-dos live in the second tab. Type a sentence like “call mum tomorrow 6pm” and quick-add fills in the details for you.',
   },
 ]
 
@@ -58,14 +46,12 @@ const slideVariants = {
 
 /**
  * The first-run welcome tour. Shown once (until Settings → Show the welcome
- * tour again), it introduces habits, streaks, periods, reminders and tasks, and
- * ends by offering the habit templates.
+ * tour again), it introduces habits, streaks and tasks in three short slides,
+ * and ends by offering the habit templates.
  */
 export function IntroFlow({ onFinish }: IntroFlowProps) {
-  const { update } = useSettings()
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
-  const [reminder, setReminder] = useState<'idle' | 'granted' | 'denied'>('idle')
   const trapRef = useFocusTrap<HTMLDivElement>()
 
   const slide = SLIDES[index]
@@ -86,14 +72,6 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
     setIndex((prev) => Math.min(SLIDES.length - 1, Math.max(0, prev + delta)))
   }
 
-  async function enableReminders() {
-    const granted = await requestNotificationPermission()
-    update({ notificationsEnabled: granted })
-    setReminder(granted ? 'granted' : 'denied')
-  }
-
-  const isReminderSlide = slide.Icon === Bell
-
   return (
     <Portal>
       <motion.div
@@ -105,7 +83,7 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
         transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="intro-title"
+        aria-label="Welcome to Bloom"
       >
         <div className="safe-shell relative mx-auto flex min-h-full w-full max-w-md flex-col px-6">
           {/* Top bar */}
@@ -143,42 +121,12 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
                 <span className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-mint-100 text-sage-500 shadow-calm dark:bg-mint-900/50 dark:text-sage-300">
                   <slide.Icon className="h-11 w-11" aria-hidden />
                 </span>
-                <h1
-                  id="intro-title"
-                  className="font-display text-2xl font-semibold tracking-tight text-ink"
-                >
+                <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
                   {slide.title}
                 </h1>
                 <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted">
                   {slide.body}
                 </p>
-
-                {isReminderSlide && (
-                  <div className="mt-6">
-                    {reminder === 'granted' ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-100 px-4 py-2 text-sm font-semibold text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                        <Check className="h-4 w-4" aria-hidden />
-                        Reminders are on
-                      </span>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => void enableReminders()}
-                          className="silicone-primary inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold"
-                        >
-                          <Bell className="h-4 w-4" aria-hidden />
-                          Turn on reminders
-                        </button>
-                        {reminder === 'denied' && (
-                          <p className="mt-3 text-xs text-peach-600 dark:text-peach-300">
-                            No problem — you can turn reminders on later in Settings.
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
               </motion.div>
             </AnimatePresence>
           </div>

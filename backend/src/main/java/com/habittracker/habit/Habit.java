@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -52,6 +53,16 @@ public class Habit {
     @Column(name = "completed_date", nullable = false)
     private Set<LocalDate> completedDates = new LinkedHashSet<>();
 
+    /** Days protected by a streak freeze — they keep the streak alive without a completion. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "habit_frozen", joinColumns = @JoinColumn(name = "habit_id"))
+    @Column(name = "frozen_date", nullable = false)
+    private Set<LocalDate> frozen = new LinkedHashSet<>();
+
+    /** How many completions count as a full day (e.g. glasses of water). */
+    @Column(name = "target", nullable = false)
+    private int target = 1;
+
     /** Repeats: "daily" (default) · "weekdays" · "weekly". */
     @Column(name = "schedule_type", length = 10)
     private String scheduleType;
@@ -86,7 +97,10 @@ public class Habit {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        // Imported records carry their original timestamp; new ones get "now".
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 
     // Getters and Setters
@@ -157,6 +171,38 @@ public class Habit {
             all.add(lastCompletedDate);
         }
         return all.stream().map(LocalDate::toString).sorted().collect(Collectors.toList());
+    }
+
+    /**
+     * Replace the completion history outright. Used by import, which trusts the
+     * snapshot — unlike {@link #getHistory()} this does not fold in
+     * {@code lastCompletedDate}.
+     */
+    public void setHistory(Collection<LocalDate> dates) {
+        this.completedDates = dates == null ? new LinkedHashSet<>() : new LinkedHashSet<>(dates);
+    }
+
+    /** Sorted ISO dates of streak-freeze days, so the web model stays parallel to {@link #getHistory()}. */
+    public List<String> getFrozen() {
+        return frozen.stream().map(LocalDate::toString).sorted().collect(Collectors.toList());
+    }
+
+    /** Replace the freeze set outright. Used by import. */
+    public void setFrozen(Collection<LocalDate> dates) {
+        this.frozen = dates == null ? new LinkedHashSet<>() : new LinkedHashSet<>(dates);
+    }
+
+    /** Raw freeze dates for streak maths. Not a bean property, so Jackson leaves it out. */
+    Set<LocalDate> frozenDates() {
+        return frozen;
+    }
+
+    public int getTarget() {
+        return target;
+    }
+
+    public void setTarget(int target) {
+        this.target = target;
     }
 
     // ── Schedule / organisation (added for the richer habit model) ──────
@@ -285,48 +331,158 @@ public class Habit {
     }
 
     // Business logic
-    public void incrementStreak() {        LocalDate today = LocalDate.now();
+
+    /** Mark today complete, honouring the habit's schedule and single grace day. */
+    public void incrementStreak() {
+        incrementStreak(LocalDate.now());
+    }
+
+    /** Testable core of {@link #incrementStreak()} with an explicit "today". */
+    void incrementStreak(LocalDate today) {
+        if (today.equals(lastCompletedDate)) {
+            // Already completed today — nothing to change.
+            this.completedDates.add(today);
+            return;
+        }
+        int missed = lastCompletedDate == null ? 0 : countMissedScheduledOccurrences(lastCompletedDate, today);
         if (lastCompletedDate == null) {
             // First completion
             this.streakCount = 1;
-        } else if (lastCompletedDate.equals(today.minusDays(1))) {
-            // Consecutive day
-            this.streakCount++;
-        } else if (lastCompletedDate.equals(today.minusDays(2))) {
-            // One day missed — a single grace day keeps the streak alive.
-            this.streakCount++;
-        } else if (!lastCompletedDate.equals(today)) {
-            // Two or more days missed — streak resets
+        } else if (missed >= 2) {
+            // Two or more scheduled occurrences missed — streak resets.
             this.streakCount = 1;
+        } else {
+            // On time, or a single grace occurrence was missed.
+            this.streakCount++;
         }
-        // If already completed today, don't change streak
         this.lastCompletedDate = today;
         this.completedDates.add(today);
     }
 
+    /**
+     * Undo today's completion. The streak drops by one (never below zero) and
+     * {@code lastCompletedDate} falls back to the most recent real completion,
+     * which may be {@code null} if there is no history left.
+     */
     public void decrementStreak() {
-        if (streakCount > 0) {
-            this.streakCount--;
-        }
-        this.completedDates.remove(LocalDate.now());
-        this.lastCompletedDate = null;
+        LocalDate today = LocalDate.now();
+        this.completedDates.remove(today);
+        this.streakCount = Math.max(0, this.streakCount - 1);
+        this.lastCompletedDate = latestCompletedDate();
     }
 
     /**
      * Toggles today's completion so an accidental tap can be undone.
-     * If today is already marked complete, the streak is rolled back by one
-     * and the last completion is treated as yesterday — re-checking restores it.
-     * Otherwise this behaves like {@link #incrementStreak()}.
+     * If today is already marked complete the streak is rolled back by one and
+     * {@code lastCompletedDate} is restored to the previous real completion —
+     * never a fabricated date. Otherwise this behaves like {@link #incrementStreak()}.
      */
     public void toggleToday() {
         LocalDate today = LocalDate.now();
         if (lastCompletedDate != null && lastCompletedDate.equals(today)) {
-            // Undo today's completion
-            this.streakCount = Math.max(0, this.streakCount - 1);
-            this.lastCompletedDate = this.streakCount > 0 ? today.minusDays(1) : null;
+            // Undo today's completion.
             this.completedDates.remove(today);
+            this.streakCount = Math.max(0, this.streakCount - 1);
+            this.lastCompletedDate = latestCompletedDate();
         } else {
             incrementStreak();
         }
+    }
+
+    private LocalDate latestCompletedDate() {
+        return completedDates.stream().max(LocalDate::compareTo).orElse(null);
+    }
+
+    // ── Schedule-aware streak maths ────────────────────────────────────
+
+    /**
+     * How many scheduled occurrences were missed strictly between {@code from}
+     * and {@code to} (both exclusive). Daily habits count calendar days,
+     * weekday habits only their scheduled days, and weekly habits count whole
+     * ISO weeks that fell short of the per-week target. Completed and frozen
+     * days are never missed.
+     */
+    int countMissedScheduledOccurrences(LocalDate from, LocalDate to) {
+        if (from == null || to == null || !from.isBefore(to)) {
+            return 0;
+        }
+        String type = (scheduleType == null || scheduleType.isBlank()) ? "daily" : scheduleType;
+        return switch (type) {
+            case "weekdays" -> countMissedDays(from, to, true);
+            case "weekly" -> countMissedWeeks(from, to);
+            default -> countMissedDays(from, to, false);
+        };
+    }
+
+    private int countMissedDays(LocalDate from, LocalDate to, boolean scheduledOnly) {
+        int missed = 0;
+        for (LocalDate day = from.plusDays(1); day.isBefore(to); day = day.plusDays(1)) {
+            if (scheduledOnly && !isScheduledWeekday(day)) {
+                continue;
+            }
+            if (completedDates.contains(day) || frozen.contains(day)) {
+                continue;
+            }
+            missed++;
+        }
+        return missed;
+    }
+
+    /** scheduleDays store 0 = Sunday … 6 = Saturday, matching the web model. */
+    private boolean isScheduledWeekday(LocalDate day) {
+        if (scheduleDays == null || scheduleDays.isBlank()) {
+            return false;
+        }
+        int index = day.getDayOfWeek().getValue() % 7;
+        for (String part : scheduleDays.split(",")) {
+            try {
+                if (Integer.parseInt(part.trim()) == index) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+                // skip malformed entries
+            }
+        }
+        return false;
+    }
+
+    private int countMissedWeeks(LocalDate from, LocalDate to) {
+        int perWeek = (schedulePerWeek == null || schedulePerWeek < 1) ? 3 : schedulePerWeek;
+        LocalDate todayWeekStart = weekStart(to);
+        LocalDate previousWeekStart = todayWeekStart.minusWeeks(1);
+        LocalDate lastWeekStart = weekStart(from);
+
+        // The last completion is in the current or previous week — on track.
+        if (!lastWeekStart.isBefore(previousWeekStart)) {
+            return 0;
+        }
+        // The previous full week hit its target, so nothing has been missed.
+        if (completionsInWeek(previousWeekStart) >= perWeek) {
+            return 0;
+        }
+
+        int missed = 0;
+        for (LocalDate week = lastWeekStart; week.isBefore(todayWeekStart); week = week.plusWeeks(1)) {
+            if (completionsInWeek(week) < perWeek) {
+                missed++;
+            }
+        }
+        return missed;
+    }
+
+    private int completionsInWeek(LocalDate weekStart) {
+        int count = 0;
+        for (int i = 0; i < 7; i++) {
+            LocalDate day = weekStart.plusDays(i);
+            if (completedDates.contains(day) || frozen.contains(day)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Monday of the ISO week containing {@code date}. */
+    private LocalDate weekStart(LocalDate date) {
+        return date.minusDays(date.getDayOfWeek().getValue() - 1L);
     }
 }

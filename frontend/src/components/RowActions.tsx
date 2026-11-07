@@ -14,14 +14,14 @@ interface RowActionsProps {
   onDelete: () => void
 }
 
-/** A single action button is a 36px square. */
-const BUTTON = 36
+/** A single action button is a 44px square, clearing the touch-target minimum. */
+const BUTTON = 44
 /** Breathing room kept inside the clipping viewport so the buttons' soft
  *  neomorphic shadows are never cut off at the edges. */
 const PAD = 8
 
-/** Three 36px buttons + two 8px gaps, or two buttons when archive is absent. */
-const openWidth = (hasArchive: boolean) => (hasArchive ? 124 : 80)
+/** Three 44px buttons + two 8px gaps, or two buttons when archive is absent. */
+const openWidth = (hasArchive: boolean) => (hasArchive ? 148 : 96)
 /** The animated viewport width: the button row plus equal padding each side. */
 const viewportWidth = (open: boolean, hasArchive: boolean) =>
   (open ? openWidth(hasArchive) : BUTTON) + PAD * 2
@@ -55,7 +55,7 @@ export function RowActions({
             aria-label={`Show actions for ${label}`}
             aria-expanded={false}
             style={{ right: PAD }}
-            className="silicone absolute flex h-9 w-9 items-center justify-center rounded-full"
+            className="silicone absolute flex h-11 w-11 items-center justify-center rounded-full"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -89,9 +89,9 @@ export function RowActions({
               onClick={onEdit}
               aria-label={`Edit ${label}`}
               title="Edit"
-              className="silicone flex h-9 w-9 items-center justify-center rounded-full"
+              className="silicone flex h-11 w-11 items-center justify-center rounded-full"
             >
-              <Pencil className="h-4 w-4 text-muted" aria-hidden />
+              <Pencil className="h-5 w-5 text-muted" aria-hidden />
             </button>
             {hasArchive && (
               <button
@@ -99,15 +99,15 @@ export function RowActions({
                 onClick={onArchive}
                 aria-label={`${archived ? 'Restore' : 'Archive'} ${label}`}
                 title={archived ? 'Restore' : 'Archive'}
-                className="silicone flex h-9 w-9 items-center justify-center rounded-full"
+                className="silicone flex h-11 w-11 items-center justify-center rounded-full"
               >
                 {archived ? (
                   <ArchiveRestore
-                    className="h-4 w-4 text-sage-600 dark:text-sage-300"
+                    className="h-5 w-5 text-sage-600 dark:text-sage-300"
                     aria-hidden
                   />
                 ) : (
-                  <Archive className="h-4 w-4 text-muted" aria-hidden />
+                  <Archive className="h-5 w-5 text-muted" aria-hidden />
                 )}
               </button>
             )}
@@ -116,9 +116,9 @@ export function RowActions({
               onClick={onDelete}
               aria-label={`Delete ${label}`}
               title="Delete"
-              className="silicone flex h-9 w-9 items-center justify-center rounded-full"
+              className="silicone flex h-11 w-11 items-center justify-center rounded-full"
             >
-              <Trash2 className="h-4 w-4 text-peach-600 dark:text-peach-300" aria-hidden />
+              <Trash2 className="h-5 w-5 text-peach-600 dark:text-peach-300" aria-hidden />
             </button>
           </motion.div>
         )}

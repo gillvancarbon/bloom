@@ -90,6 +90,21 @@ describe('parseQuickAdd', () => {
     expect(parseQuickAdd('Ship #bloom release', NOW)?.title).toBe('Ship #bloom release')
   })
 
+  it('rejects impossible calendar dates and leaves the text untouched', () => {
+    expect(parseQuickAdd('Audit 2026-02-31', NOW)).toMatchObject({
+      title: 'Audit 2026-02-31',
+      dueDate: null,
+    })
+    expect(parseQuickAdd('Concert 31 feb', NOW)).toMatchObject({
+      title: 'Concert 31 feb',
+      dueDate: null,
+    })
+    expect(parseQuickAdd('Meeting 31/02', NOW)).toMatchObject({
+      title: 'Meeting 31/02',
+      dueDate: null,
+    })
+  })
+
   it('returns null when only tokens remain', () => {
     expect(parseQuickAdd('tomorrow 5pm', NOW)).toBeNull()
   })

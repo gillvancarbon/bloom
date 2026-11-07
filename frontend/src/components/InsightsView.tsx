@@ -31,6 +31,18 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
   const review = weeklyReview(habits, now, historyStart, weekStart)
   const [openId, setOpenId] = useState<number | null>(null)
 
+  // A plain-language equivalent of the bar chart, for screen readers.
+  const monthCounts = summary.points.reduce(
+    (acc, point) => {
+      if (point.total === 0) acc.none += 1
+      else if (point.done >= point.total) acc.full += 1
+      else if (point.done > 0) acc.partial += 1
+      else acc.missed += 1
+      return acc
+    },
+    { full: 0, partial: 0, missed: 0, none: 0 },
+  )
+
   return (
     <Portal>
       <motion.div
@@ -71,8 +83,8 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
 
           {/* Headline stats */}
           <div className="mb-5 grid grid-cols-2 gap-3">
-            <Stat label="This week" value={pct(summary.weekRate)} hint="completed" />
-            <Stat label="This month" value={pct(summary.monthRate)} hint="completed" />
+            <Stat label="This week" value={pct(summary.weekRate)} hint="of habits done" />
+            <Stat label="This month" value={pct(summary.monthRate)} hint="of habits done" />
             <Stat label="Perfect days" value={summary.currentPerfectStreak} hint="in a row" />
             <Stat label="Best streak" value={summary.bestStreak} hint="days" />
           </div>
@@ -88,17 +100,17 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                 <p className="font-display text-lg font-semibold text-ink">
                   {review.activeDays}/{review.days}
                 </p>
-                <p className="text-[10px] text-muted">active days</p>
+                <p className="text-xs text-muted">active days</p>
               </div>
               <div>
                 <p className="font-display text-lg font-semibold text-ink">{review.completions}</p>
-                <p className="text-[10px] text-muted">completions</p>
+                <p className="text-xs text-muted">completions</p>
               </div>
               <div>
                 <p className="font-display text-lg font-semibold text-ink">
                   {review.bestDay?.done ?? 0}
                 </p>
-                <p className="text-[10px] text-muted">best day</p>
+                <p className="text-xs text-muted">best day</p>
               </div>
             </div>
           </section>
@@ -111,6 +123,11 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
             </h2>
             <p className="mb-3 text-xs text-muted">
               Each bar is how much of that day’s habits you finished.
+            </p>
+            <p className="sr-only">
+              Last 30 days: {monthCounts.full} day{monthCounts.full === 1 ? '' : 's'} on target,{' '}
+              {monthCounts.partial} partial, {monthCounts.missed} missed
+              {monthCounts.none > 0 ? `, ${monthCounts.none} with no data` : ''}.
             </p>
             <div className="flex h-24 items-end gap-[3px]" aria-hidden>
               {summary.points.map((point) => {
@@ -134,7 +151,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                 )
               })}
             </div>
-            <div className="mt-2 flex justify-between text-[10px] text-muted">
+            <div className="mt-2 flex justify-between text-xs text-muted">
               <span>30 days ago</span>
               <span>Today</span>
             </div>
@@ -146,10 +163,10 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
               <h2 className="mb-3 font-display text-sm font-semibold text-ink">Your habits</h2>
               <ul className="space-y-1">
                 {live.map((habit) => {
-                  const best = bestStreak(habit)
+                  const best = bestStreak(habit, weekStart)
                   const done = habit.history.length
                   const open = openId === habit.id
-                  const badges = milestones(habit)
+                  const badges = milestones(habit, weekStart)
                   const reached = badges.filter((badge) => badge.reached).length
                   return (
                     <li key={habit.id}>
@@ -169,7 +186,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                         <div className="flex shrink-0 items-center gap-2">
                           <div className="text-right">
                             <p className="text-sm font-semibold text-ink">{done}</p>
-                            <p className="text-[10px] text-muted">total · best {best}</p>
+                            <p className="text-xs text-muted">total · best {best}</p>
                           </div>
                           <ChevronDown
                             className={`h-4 w-4 text-muted transition-transform duration-calm ease-calm ${
@@ -196,7 +213,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                             {badges.map((badge) => (
                               <span
                                 key={badge.id}
-                                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                   badge.reached
                                     ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
                                     : 'bg-mint-100 text-muted dark:bg-mint-900/40'
@@ -228,9 +245,9 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
 function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
     <div className="rounded-calm border border-line bg-raised px-3 py-3 text-center shadow-calm">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-1 font-display text-xl font-semibold text-ink">{value}</p>
-      {hint && <p className="text-[10px] text-muted">{hint}</p>}
+      {hint && <p className="text-xs text-muted">{hint}</p>}
     </div>
   )
 }

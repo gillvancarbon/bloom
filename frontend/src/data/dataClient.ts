@@ -14,7 +14,14 @@ import type { Habit, Todo } from '../types'
 const localMode = import.meta.env.VITE_DATA_MODE === 'local'
 
 /** Device keys that hold user data (settings and backups are deliberately kept). */
-const DATA_KEYS = ['bloom.habits.v1', 'bloom.todos.v1', 'bloom.seq.v1', 'bloom.todoSeq.v1']
+const DATA_KEYS = [
+  'bloom.habits.v1',
+  'bloom.todos.v1',
+  'bloom.seq.v1',
+  'bloom.todoSeq.v1',
+  'bloom.historyStart.v1',
+  'bloom.pendingDeletes.v1',
+]
 
 async function clearLocal(): Promise<void> {
   for (const key of DATA_KEYS) {
@@ -26,17 +33,11 @@ async function clearLocal(): Promise<void> {
   await todoOrderStore.clear()
 }
 
-async function clearRemote(): Promise<void> {
-  const [habits, todos] = await Promise.all([api.list(), api.todos.list()])
-  await Promise.all(habits.map((h) => api.remove(h.id)))
-  await Promise.all(todos.map((t) => api.todos.remove(t.id)))
-}
-
 export const dataClient = {
   isLocal: localMode,
   async clearAll(): Promise<void> {
     if (localMode) return clearLocal()
-    return clearRemote()
+    return api.data.clear()
   },
   /** Read the whole dataset, whichever data mode is active. */
   async readAll(): Promise<{ habits: Habit[]; todos: Todo[] }> {
@@ -49,8 +50,9 @@ export const dataClient = {
   },
   /**
    * Replace the whole dataset from an imported snapshot. Local mode writes the
-   * records straight through (keeping ids and history); the REST mode clears
-   * the server copy first and re-creates each record.
+   * records straight through (keeping ids and history); REST mode hands the
+   * whole bundle to the server's transactional import endpoint, so a failure
+   * rolls back and leaves the previous dataset intact.
    */
   async importAll(bundle: { habits: Habit[]; todos: Todo[] }): Promise<void> {
     // Imported records may reuse ids, so start the nudge ledger and manual
@@ -64,12 +66,6 @@ export const dataClient = {
       ])
       return
     }
-    await clearRemote()
-    for (const habit of bundle.habits) {
-      await api.create(habit)
-    }
-    for (const todo of bundle.todos) {
-      await api.todos.create(todo)
-    }
+    await api.data.import(bundle)
   },
 }

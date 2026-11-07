@@ -42,7 +42,7 @@ const DAY_TEXT: Record<DayStatus, string> = {
 const LEGEND: { status: DayStatus; label: string }[] = [
   { status: 'full', label: 'All done' },
   { status: 'partial', label: 'Some done' },
-  { status: 'empty', label: 'Nothing done' },
+  { status: 'empty', label: 'Nothing logged' },
   { status: 'none', label: 'No data' },
 ]
 

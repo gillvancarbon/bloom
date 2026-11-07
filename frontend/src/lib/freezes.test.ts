@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Habit } from '../types'
 import { normalizeHabit } from './habit'
 import { freezeRefillPatch, missedDays, nextFreezeDate, WEEKLY_FREEZES } from './freezes'
-import { streakState } from './streak'
+import { streakState } from './schedule'
 import { DEFAULT_SETTINGS } from '../data/settingsStore'
 
 function habit(partial: Partial<Habit> & { id: number }): Habit {

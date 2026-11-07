@@ -179,11 +179,19 @@ export function matchesTodo(todo: Todo, query: string): boolean {
   return todo.subtasks.some((subtask) => subtask.title.toLowerCase().includes(q))
 }
 
-/** Add a whole number of months, clamping the day (31 Jan + 1 month = 28 Feb). */
-function addMonths(date: Date, months: number): Date {
+/**
+ * Add a whole number of months. A month-end date stays on the target month's
+ * last day (31 Jan + 1 month = 28 Feb, then 28 Feb + 1 month = 31 Mar), so a
+ * monthly task never drifts earlier each month. Other days clamp normally.
+ */
+export function addMonths(date: Date, months: number): Date {
+  const day = date.getDate()
+  const lastDayOfInputMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  const isMonthEnd = day === lastDayOfInputMonth
+
   const next = new Date(date.getFullYear(), date.getMonth() + months, 1)
   const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
-  next.setDate(Math.min(date.getDate(), lastDay))
+  next.setDate(isMonthEnd ? lastDay : Math.min(day, lastDay))
   return next
 }
 

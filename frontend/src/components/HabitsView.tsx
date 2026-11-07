@@ -7,24 +7,13 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
-  type TouchEvent as ReactTouchEvent,
 } from 'react'
-import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'framer-motion'
-import {
-  Archive,
-  CalendarClock,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Flame,
-  Plus,
-  Sparkles,
-  TrendingUp,
-} from 'lucide-react'
-import { ThemeToggle } from './ThemeToggle'
-import { BrandHeader } from './BrandHeader'
+import { AnimatePresence, motion, Reorder, useDragControls } from 'framer-motion'
+import { Archive, CalendarClock, Check, ChevronDown, Flame, Plus, Sparkles } from 'lucide-react'
+import { AppHeader } from './AppHeader'
 import { HabitCard } from './HabitCard'
 import { HabitForm } from './HabitForm'
+import { HabitQuickAddBar } from './HabitQuickAddBar'
 import { DeleteConfirm } from './DeleteConfirm'
 import { CalendarView } from './CalendarView'
 import { InsightsView } from './InsightsView'
@@ -46,8 +35,6 @@ import {
   clockAdvance,
   groupByPeriod,
   periodFromTime,
-  periodIndex,
-  shiftPeriod,
 } from '../lib/dayPeriod'
 import { orderHabits } from '../lib/orderHabits'
 import { isAtRisk } from '../lib/freezes'
@@ -66,6 +53,9 @@ interface HabitsViewProps {
   /** Set by the welcome tour to open the template picker once Habits is shown. */
   autoOpenTemplates?: boolean
   onTemplatesHandled?: () => void
+  /** Set when Calendar/Insights are opened from another tab. */
+  autoOpenOverlay?: 'calendar' | 'insights' | null
+  onOverlayHandled?: () => void
 }
 
 const SORT_OPTIONS: Array<{ value: HabitSort; label: string }> = [
@@ -173,6 +163,8 @@ export function HabitsView({
   onOpenSettings,
   autoOpenTemplates,
   onTemplatesHandled,
+  autoOpenOverlay,
+  onOverlayHandled,
 }: HabitsViewProps) {
   const {
     habits,
@@ -201,19 +193,25 @@ export function HabitsView({
   const [showNotToday, setShowNotToday] = useState(false)
   const [freezeOpen, setFreezeOpen] = useState(false)
   const [hidden, setHidden] = useState<Set<number>>(new Set())
+  const [liveMessage, setLiveMessage] = useState('')
   const now = useNow()
   const undo = useUndoQueue()
   const { commitNow } = undo
-  const reduceMotion = useReducedMotion()
-  // Chosen once on launch so the view never jumps while the app is open.
-  const [period, setPeriod] = useState<DayPeriod>(() => periodFromTime(new Date()))
-  const [slide, setSlide] = useState(1)
-  const touchStart = useRef<{ x: number; y: number; at: number } | null>(null)
-  const firstPeriodRender = useRef(true)
+  // One list for the whole day, optionally filtered to a single part of it.
+  // The default is "all", so the day is never hidden behind four screens.
+  const [filter, setFilter] = useState<DayPeriod | 'all'>(() =>
+    settings.followClock ? periodFromTime(new Date()) : 'all',
+  )
   // "Follow the clock" should only step the view when the clock crosses into a
   // new period — never on a manual tap, or Anytime would be unreachable.
   const lastClockPeriod = useRef<DayPeriod>(periodFromTime(new Date()))
   const wasFollowingClock = useRef(settings.followClock)
+
+  /** Announce a change to assistive tech, clearing first so repeats land. */
+  function announce(message: string) {
+    setLiveMessage('')
+    requestAnimationFrame(() => setLiveMessage(message))
+  }
 
   // Commit any pending delete when leaving the screen, so a tab switch can't
   // resurrect an optimistically-hidden habit.
@@ -225,6 +223,14 @@ export function HabitsView({
     setTemplatesOpen(true)
     onTemplatesHandled?.()
   }, [autoOpenTemplates, onTemplatesHandled])
+
+  // Another tab can ask for the Calendar or Insights overlay.
+  useEffect(() => {
+    if (!autoOpenOverlay) return
+    if (autoOpenOverlay === 'calendar') setCalendarOpen(true)
+    if (autoOpenOverlay === 'insights') setInsightsOpen(true)
+    onOverlayHandled?.()
+  }, [autoOpenOverlay, onOverlayHandled])
 
   // Collapse the open card when tapping anywhere outside its action area.
   useEffect(() => {
@@ -272,14 +278,32 @@ export function HabitsView({
     return stats
   }, [periodGroups, now, weekStart])
 
-  const periodHabits = periodGroups[period]
-  const ordered = useMemo(
-    () => orderHabits(periodHabits, settings.habitSort, now, weekStart),
-    [periodHabits, settings.habitSort, now, weekStart],
+  // Periods that actually hold a habit today — the chips and section headers
+  // only appear when there is more than one, so a single-bucket day stays calm.
+  const populatedPeriods = useMemo(
+    () => DAY_PERIODS.filter((period) => periodGroups[period].length > 0),
+    [periodGroups],
   )
-  const visibleHabits = settings.hideCompleted
-    ? ordered.filter((habit) => !isCompleteForPeriod(habit, now, weekStart))
-    : ordered
+  const chipOptions: Array<DayPeriod | 'all'> = ['all', ...populatedPeriods]
+  const showChips = populatedPeriods.length >= 2
+
+  const orderedFor = (period: DayPeriod) =>
+    orderHabits(periodGroups[period], settings.habitSort, now, weekStart)
+  const visibleFor = (period: DayPeriod) => {
+    const ordered = orderedFor(period)
+    return settings.hideCompleted
+      ? ordered.filter((habit) => !isCompleteForPeriod(habit, now, weekStart))
+      : ordered
+  }
+
+  // Sections to render: every populated period, or just the chosen one.
+  const sectionPeriods =
+    filter === 'all'
+      ? populatedPeriods
+      : populatedPeriods.includes(filter as DayPeriod)
+        ? [filter as DayPeriod]
+        : []
+
   const reorderable = settings.habitSort === 'manual'
 
   // Active habits off today's schedule — an off-day for a weekday habit, or a
@@ -300,55 +324,19 @@ export function HabitsView({
     [habits, now],
   )
 
-  function selectPeriod(next: DayPeriod) {
-    if (next === period) return
-    setSlide(periodIndex(next) > periodIndex(period) ? 1 : -1)
-    setPeriod(next)
-  }
-
-  function movePeriod(delta: number) {
-    const next = shiftPeriod(period, delta)
-    if (next === period) return
-    setSlide(delta > 0 ? 1 : -1)
-    setPeriod(next)
-  }
-
-  function handleTabsKeyDown(event: ReactKeyboardEvent) {
+  /** Arrow keys rove across the period filter chips. */
+  function handleFilterKeyDown(event: ReactKeyboardEvent) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
     event.preventDefault()
-    const next = shiftPeriod(period, event.key === 'ArrowRight' ? 1 : -1)
-    selectPeriod(next)
-    requestAnimationFrame(() => document.getElementById(`period-tab-${next}`)?.focus())
+    const index = Math.max(0, chipOptions.indexOf(filter))
+    const dir = event.key === 'ArrowRight' ? 1 : -1
+    const next = chipOptions[(index + dir + chipOptions.length) % chipOptions.length]
+    setFilter(next)
+    requestAnimationFrame(() => document.getElementById(`period-filter-${next}`)?.focus())
   }
 
-  function handleTouchStart(event: ReactTouchEvent) {
-    if (event.touches.length !== 1) {
-      touchStart.current = null
-      return
-    }
-    const touch = event.touches[0]
-    touchStart.current = { x: touch.clientX, y: touch.clientY, at: Date.now() }
-  }
-
-  function handleTouchEnd(event: ReactTouchEvent) {
-    const start = touchStart.current
-    touchStart.current = null
-    if (!start) return
-    // A long press is a reorder drag, not a swipe.
-    if (Date.now() - start.at > 450) return
-    const touch = event.changedTouches[0]
-    if (!touch) return
-    const dx = touch.clientX - start.x
-    const dy = touch.clientY - start.y
-    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return
-    // Buttons keep their own taps and gestures.
-    if ((event.target as HTMLElement | null)?.closest('button, a, input, select, textarea')) return
-    movePeriod(dx < 0 ? 1 : -1)
-  }
-
-  // When "follow the clock" is on, advance the visible period as the day moves.
-  // Anytime is left alone entirely, and any period the reader picked stays put
-  // until the clock genuinely crosses into morning, afternoon or evening.
+  // When "follow the clock" is on, step the filter as the day moves. Anytime is
+  // left alone entirely, and the all-day view is never yanked away.
   useEffect(() => {
     const current = periodFromTime(now)
     if (!settings.followClock) {
@@ -359,21 +347,15 @@ export function HabitsView({
 
     const justEnabled = !wasFollowingClock.current
     wasFollowingClock.current = true
-    const target = clockAdvance(period, current, lastClockPeriod.current, justEnabled)
-    lastClockPeriod.current = current
-    if (!target) return
-    setSlide(periodIndex(target) > periodIndex(period) ? 1 : -1)
-    setPeriod(target)
-  }, [now, settings.followClock, period])
-
-  // A swipe or tab change shouldn't leave the reader mid-scroll.
-  useEffect(() => {
-    if (firstPeriodRender.current) {
-      firstPeriodRender.current = false
+    if (filter === 'all') {
+      lastClockPeriod.current = current
       return
     }
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [period, reduceMotion])
+    const target = clockAdvance(filter, current, lastClockPeriod.current, justEnabled)
+    lastClockPeriod.current = current
+    if (!target) return
+    setFilter(target)
+  }, [now, settings.followClock, filter])
 
   const doneToday = todayHabits.filter((habit) => isCompleteForPeriod(habit, now, weekStart)).length
   const streak = dailyStreak(activeHabits, now, historyStart)
@@ -383,10 +365,7 @@ export function HabitsView({
       deadlineState(habit.deadline, now).level === 'overdue',
   ).length
 
-  const stats = periodStats[period]
-  const liveMessage = `${PERIOD_LABELS[period]}: ${stats.total} habit${
-    stats.total === 1 ? '' : 's'
-  }${stats.total ? `, ${stats.done} done` : ''}`
+  const anyVisible = sectionPeriods.some((period) => visibleFor(period).length > 0)
 
   async function handleCreate(input: HabitInput) {
     await create(input)
@@ -399,9 +378,21 @@ export function HabitsView({
 
   async function handleToggle(habit: Habit) {
     const completing = !isCompleteForPeriod(habit, now, weekStart)
-    await toggle(habit.id)
-    // A satisfying ding only when marking done, never when un-checking.
-    if (completing) void playCompletionSound(settings)
+    const updated = await toggle(habit.id)
+    if (completing) {
+      // A satisfying ding only when marking done, never when un-checking.
+      void playCompletionSound(settings)
+      announce(`${habit.name} done. ${updated.streakCount}-day streak.`)
+      // Let the completion be taken back, exactly as the To-do list does.
+      undo.push({
+        message: `“${habit.name}” completed`,
+        undoLabel: 'Undo',
+        onUndo: () => toggle(habit.id).catch(() => undefined),
+        onCommit: () => undefined,
+      })
+    } else {
+      announce(`${habit.name} reopened.`)
+    }
   }
 
   function requestDelete(habit: Habit) {
@@ -473,14 +464,26 @@ export function HabitsView({
     })
   }
 
-  function handleReorder(next: Habit[]) {
+  function handleReorder(next: Habit[], sectionHabits: Habit[]) {
     if (!reorderable) return
-    // Reorder only the visible period. The other periods keep their slots so
-    // the stored order stays stable when the time of day changes.
-    const moving = new Set(visibleHabits.map((h) => h.id))
+    // Reorder only the section being dragged. The other periods keep their
+    // slots so the stored order stays stable when the time of day changes.
+    const moving = new Set(sectionHabits.map((h) => h.id))
     const queue = [...next]
     const merged = activeHabits.map((h) => (moving.has(h.id) ? (queue.shift() ?? h) : h))
     reorder(merged.map((h) => h.id)).catch(() => undefined)
+  }
+
+  /** Move one habit a slot up or down within its section (keyboard-friendly). */
+  function moveInSection(sectionHabits: Habit[], id: number, delta: number) {
+    if (!reorderable) return
+    const ids = sectionHabits.map((h) => h.id)
+    const from = ids.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= ids.length) return
+    const reordered = [...sectionHabits]
+    ;[reordered[from], reordered[to]] = [reordered[to], reordered[from]]
+    handleReorder(reordered, sectionHabits)
   }
 
   async function addTemplates(selected: HabitInput[]) {
@@ -497,34 +500,13 @@ export function HabitsView({
   const hasToday = todayHabits.length > 0
 
   return (
-    <div
-      className="safe-shell relative z-10 mx-auto max-w-2xl px-4 sm:px-6"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <BrandHeader subtitle="Grow gently, one day at a time." onOpenSettings={onOpenSettings}>
-        <button
-          type="button"
-          onClick={() => setCalendarOpen(true)}
-          aria-label="Open consistency calendar"
-          title="Consistency calendar"
-          className="silicone flex h-10 w-10 items-center justify-center rounded-full text-muted
-                     hover:text-sage-500 dark:hover:text-sage-300"
-        >
-          <CalendarDays className="h-5 w-5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => setInsightsOpen(true)}
-          aria-label="Open insights"
-          title="Insights"
-          className="silicone flex h-10 w-10 items-center justify-center rounded-full text-muted
-                     hover:text-sage-500 dark:hover:text-sage-300"
-        >
-          <TrendingUp className="h-5 w-5" aria-hidden />
-        </button>
-        <ThemeToggle />
-      </BrandHeader>
+    <div className="safe-shell relative z-10 mx-auto max-w-2xl px-4 sm:px-6">
+      <AppHeader
+        subtitle="Grow gently, one day at a time."
+        onOpenSettings={onOpenSettings}
+        onOpenCalendar={() => setCalendarOpen(true)}
+        onOpenInsights={() => setInsightsOpen(true)}
+      />
 
       {/* Stats */}
       <motion.section
@@ -535,8 +517,8 @@ export function HabitsView({
       >
         <Stat
           label="Done today"
-          value={`${doneToday} | ${todayHabits.length}`}
-          title="Habits completed today / habits scheduled today"
+          value={`${doneToday} / ${todayHabits.length}`}
+          title="Habits completed today out of habits scheduled today"
         />
         <Stat
           label="Day streak"
@@ -552,6 +534,11 @@ export function HabitsView({
           title="Habits past today's deadline and not done"
         />
       </motion.section>
+
+      {/* Quick add — a sentence becomes a habit */}
+      {!loading && !error && (
+        <HabitQuickAddBar now={now} onCreate={handleCreate} guidance={settings.quickAddGuidance} />
+      )}
 
       {/* Add habit */}
       <div className="mb-5 flex items-center justify-between gap-2">
@@ -585,7 +572,7 @@ export function HabitsView({
           </button>
           <button
             type="button"
-            onClick={() => openCreate(period)}
+            onClick={() => openCreate(filter === 'all' ? periodFromTime(new Date()) : filter)}
             className="silicone-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
           >
             <Plus className="h-4 w-4" aria-hidden />
@@ -594,59 +581,52 @@ export function HabitsView({
         </div>
       </div>
 
-      {/* Period switcher — one period visible at a time */}
+      {/* Period filter — the whole day is shown by default; chips narrow it */}
       {!loading && !error && activeHabits.length > 0 && hasToday && (
         <>
-          <div
-            role="tablist"
-            aria-label="Time of day"
-            onKeyDown={handleTabsKeyDown}
-            className="mb-3 flex flex-wrap items-center gap-1.5"
-          >
-            {DAY_PERIODS.map((option) => {
-              const selected = option === period
-              const stat = periodStats[option]
-              const allDone = stat.total > 0 && stat.done === stat.total
-              const stateClass = selected
-                ? 'bg-sage-500 text-white shadow-calm'
-                : allDone
-                  ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
-                  : 'bg-mint-100 text-sage-700 hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70'
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="tab"
-                  id={`period-tab-${option}`}
-                  aria-selected={selected}
-                  aria-controls={`period-panel-${option}`}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => selectPeriod(option)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium
-                              transition-all duration-calm ease-calm ${stateClass}`}
-                >
-                  {PERIOD_LABELS[option]}
-                  {stat.total > 0 && (
-                    <span
-                      className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
-                        selected ? 'bg-white/25' : 'bg-black/5 dark:bg-white/10'
-                      }`}
-                    >
-                      {stat.done}/{stat.total}
-                    </span>
-                  )}
-                  {stat.overdue > 0 && (
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        selected ? 'bg-white' : 'bg-peach-500 dark:bg-peach-300'
-                      }`}
-                      aria-hidden
-                    />
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          {showChips && (
+            <div
+              role="tablist"
+              aria-label="Filter by time of day"
+              onKeyDown={handleFilterKeyDown}
+              className="mb-3 flex flex-wrap items-center gap-1.5"
+            >
+              {chipOptions.map((option) => {
+                const selected = option === filter
+                const stat = option === 'all' ? null : periodStats[option]
+                const allDone = stat ? stat.total > 0 && stat.done === stat.total : false
+                const stateClass = selected
+                  ? 'bg-sage-500 text-white shadow-calm'
+                  : allDone
+                    ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
+                    : 'bg-mint-100 text-sage-700 hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70'
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    role="tab"
+                    id={`period-filter-${option}`}
+                    aria-selected={selected}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => setFilter(option)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium
+                                transition-all duration-calm ease-calm ${stateClass}`}
+                  >
+                    {option === 'all' ? 'All day' : PERIOD_LABELS[option]}
+                    {option !== 'all' && stat && stat.total > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${
+                          selected ? 'bg-white/25' : 'bg-black/5 dark:bg-white/10'
+                        }`}
+                      >
+                        {stat.done}/{stat.total}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <div className="mb-4 flex items-center justify-between gap-2">
             <button
@@ -680,23 +660,23 @@ export function HabitsView({
               </select>
             </label>
           </div>
-
-          <div className="mb-3 flex justify-center gap-1.5" aria-hidden>
-            {DAY_PERIODS.map((option) => (
-              <span
-                key={option}
-                className={`h-1.5 rounded-full transition-all duration-calm ease-calm ${
-                  option === period ? 'w-4 bg-sage-400' : 'w-1.5 bg-mint-300 dark:bg-mint-800'
-                }`}
-              />
-            ))}
-          </div>
         </>
       )}
 
       <p className="sr-only" role="status" aria-live="polite">
         {liveMessage}
       </p>
+
+      {/* Coach the very first completion, until anything has been ticked. */}
+      {!loading &&
+        !error &&
+        todayHabits.length > 0 &&
+        activeHabits.every((habit) => habit.history.length === 0) && (
+          <p className="mb-3 rounded-calm-sm border border-dashed border-line bg-raised/60 px-3 py-2 text-xs text-muted">
+            Tap the circle when you’ve done it. Miss a day and a gentle grace keeps your flame
+            alive.
+          </p>
+        )}
 
       {/* Content */}
       {loading ? (
@@ -752,63 +732,61 @@ export function HabitsView({
             </button>
           </div>
         </motion.div>
-      ) : (
-        <div aria-live="polite">
-          <motion.div
-            key={period}
-            id={`period-panel-${period}`}
-            role="tabpanel"
-            aria-labelledby={`period-tab-${period}`}
-            initial={{ opacity: 0, x: reduceMotion ? 0 : slide * 18 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      ) : todayHabits.length === 0 ? (
+        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
+          <h3 className="font-display text-base font-semibold text-ink">Nothing scheduled today</h3>
+          <p className="mt-1 max-w-xs text-sm text-muted">
+            Enjoy the space — your habits will appear here on the days they’re due.
+          </p>
+        </div>
+      ) : sectionPeriods.length === 0 ? (
+        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
+          <h3 className="font-display text-base font-semibold text-ink">
+            No {PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habits today
+          </h3>
+          <p className="mt-1 max-w-xs text-sm text-muted">
+            Tap “All day” to see everything, or add a habit for this part of the day.
+          </p>
+          <button
+            type="button"
+            onClick={() => openCreate(filter as DayPeriod)}
+            className="silicone mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
           >
-            {todayHabits.length === 0 ? (
-              <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-                <h3 className="font-display text-base font-semibold text-ink">
-                  Nothing scheduled today
+            <Plus className="h-4 w-4" aria-hidden />
+            Add a {PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habit
+          </button>
+        </div>
+      ) : !anyVisible ? (
+        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sage-100 text-sage-600 dark:bg-sage-900/50 dark:text-sage-300">
+            <Check className="h-6 w-6" aria-hidden />
+          </span>
+          <h3 className="font-display text-base font-semibold text-ink">All done for now</h3>
+          <p className="mt-1 max-w-xs text-sm text-muted">
+            {filter === 'all'
+              ? 'Everything for today is finished. Turn off “Hide done” to see it.'
+              : `Nothing left in ${PERIOD_LABELS[filter as DayPeriod].toLowerCase()}. Turn off “Hide done” to see what you finished.`}
+          </p>
+        </div>
+      ) : (
+        sectionPeriods.map((period) => {
+          const visible = visibleFor(period)
+          if (visible.length === 0) return null
+          return (
+            <section key={period} className="mb-6 last:mb-0">
+              {showChips && filter === 'all' && (
+                <h3 className="mb-2 px-1 font-display text-sm font-semibold text-muted">
+                  {PERIOD_LABELS[period]}
                 </h3>
-                <p className="mt-1 max-w-xs text-sm text-muted">
-                  Enjoy the space — your habits will appear here on the days they’re due.
-                </p>
-              </div>
-            ) : periodHabits.length === 0 ? (
-              <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-                <h3 className="font-display text-base font-semibold text-ink">
-                  No {PERIOD_LABELS[period].toLowerCase()} habits today
-                </h3>
-                <p className="mt-1 max-w-xs text-sm text-muted">
-                  Swipe or tap another part of the day to see what’s waiting.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openCreate(period)}
-                  className="silicone mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-                >
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Add a {PERIOD_LABELS[period].toLowerCase()} habit
-                </button>
-              </div>
-            ) : visibleHabits.length === 0 ? (
-              <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-                <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sage-100 text-sage-600 dark:bg-sage-900/50 dark:text-sage-300">
-                  <Check className="h-6 w-6" aria-hidden />
-                </span>
-                <h3 className="font-display text-base font-semibold text-ink">All done for now</h3>
-                <p className="mt-1 max-w-xs text-sm text-muted">
-                  Nothing left in {PERIOD_LABELS[period].toLowerCase()}. Turn off “Hide done” to see
-                  what you finished.
-                </p>
-              </div>
-            ) : (
+              )}
               <Reorder.Group
                 as="ul"
                 axis="y"
-                values={visibleHabits}
-                onReorder={handleReorder}
+                values={visible}
+                onReorder={(next) => handleReorder(next, visible)}
                 className="space-y-3"
               >
-                {visibleHabits.map((habit) => (
+                {visible.map((habit) => (
                   <HabitRow key={habit.id} habit={habit} reorderable={reorderable}>
                     <HabitCard
                       habit={habit}
@@ -827,13 +805,21 @@ export function HabitsView({
                       onArchive={handleArchive}
                       onDelete={requestDelete}
                       onChangePeriod={handleMovePeriod}
+                      onMoveUp={
+                        reorderable ? () => moveInSection(visible, habit.id, -1) : undefined
+                      }
+                      onMoveDown={
+                        reorderable ? () => moveInSection(visible, habit.id, 1) : undefined
+                      }
+                      canMoveUp={reorderable && visible[0]?.id !== habit.id}
+                      canMoveDown={reorderable && visible[visible.length - 1]?.id !== habit.id}
                     />
                   </HabitRow>
                 ))}
               </Reorder.Group>
-            )}
-          </motion.div>
-        </div>
+            </section>
+          )
+        })
       )}
 
       {/* Habits that aren't on today's schedule */}
@@ -940,7 +926,7 @@ export function HabitsView({
       )}
 
       <footer className="mt-10 text-center text-xs text-muted">
-        Tap the circle to complete · swipe left or right for another time of day · press and hold to
+        Tap the circle to complete · use the chips to filter by time of day · press and hold to
         reorder.
       </footer>
 

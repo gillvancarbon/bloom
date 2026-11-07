@@ -4,8 +4,9 @@ import {
   type ActionPerformed,
   type LocalNotificationSchema,
 } from '@capacitor/local-notifications'
-import type { Habit, Settings, Todo } from '../types'
+import type { Habit, Settings, Todo, WeekStart } from '../types'
 import { reminderBody, reminderClock } from './reminder'
+import { completionsThisWeek, normalizeSchedule } from './schedule'
 import {
   OVERDUE_NUDGE_DELAY_MS,
   taskOverdue,
@@ -214,15 +215,15 @@ export function reminderOccurrences(
   habit: Habit,
   now: Date,
   horizonDays = HORIZON_DAYS,
+  weekStart: WeekStart = 1,
 ): ReminderOccurrence[] {
   const offset = habit.reminderOffset
   if (offset == null) return []
 
   const { hour, minute } = parseHM(reminderClock(habit.deadline, offset))
+  const schedule = normalizeSchedule(habit.schedule)
   const weekdays =
-    habit.schedule.type === 'weekdays' && habit.schedule.days.length
-      ? new Set(habit.schedule.days)
-      : null
+    schedule.type === 'weekdays' && schedule.days.length ? new Set(schedule.days) : null
 
   const occurrences: ReminderOccurrence[] = []
   for (let dayOffset = 0; dayOffset < horizonDays; dayOffset += 1) {
@@ -231,6 +232,13 @@ export function reminderOccurrences(
     at.setHours(hour, minute, 0, 0)
     if (at.getTime() <= now.getTime()) continue
     if (weekdays && !weekdays.has(at.getDay())) continue
+    // A flexible weekly habit stops nudging once its target is met for the week.
+    if (
+      schedule.type === 'weekly' &&
+      completionsThisWeek(habit, at, weekStart) >= schedule.perWeek
+    ) {
+      continue
+    }
     occurrences.push({ at, dayOffset })
   }
   return occurrences

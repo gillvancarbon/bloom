@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
-import { Archive, ArchiveRestore, Bell, Clock, Tag, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Bell, ChevronDown, Clock, Tag, X } from 'lucide-react'
 import type { DayPeriod, Habit, HabitInput, HabitSchedule } from '../types'
 import { normalizeSchedule } from '../lib/schedule'
 import { DAY_PERIODS, PERIOD_LABELS, periodFromDeadline, periodFromTime } from '../lib/dayPeriod'
 import { formatTime, orderedWeekdays, weekdayNames } from '../lib/format'
 import { REMINDER_OPTIONS, offsetPhrase, reminderClock } from '../lib/reminder'
+import { CATEGORY_SUGGESTIONS } from '../lib/categories'
 import { useSettings } from '../context/SettingsContext'
 
 interface HabitFormProps {
@@ -33,8 +34,6 @@ const SCHEDULE_TABS: Array<{ id: HabitSchedule['type']; label: string }> = [
   { id: 'weekdays', label: 'Days' },
   { id: 'weekly', label: 'Per week' },
 ]
-
-const CATEGORY_SUGGESTIONS = ['General', 'Health', 'Mind', 'Growth', 'Home', 'Work', 'Connection']
 
 export function HabitForm({
   mode,
@@ -66,6 +65,9 @@ export function HabitForm({
   )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Creating stays a one-field job; the rest is revealed on demand. Editing
+  // opens with everything visible because the values already exist.
+  const [showMore, setShowMore] = useState(mode === 'edit')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export function HabitForm({
 
   function buildSchedule(): HabitSchedule {
     if (scheduleType === 'weekdays') {
-      return { type: 'weekdays', days: days.length ? days : [1, 2, 3, 4, 5] }
+      return { type: 'weekdays', days }
     }
     if (scheduleType === 'weekly') {
       return { type: 'weekly', perWeek: Math.min(7, Math.max(1, perWeek)) }
@@ -100,6 +102,10 @@ export function HabitForm({
     }
     if (trimmed.length > 100) {
       setError('Keep it under 100 characters.')
+      return
+    }
+    if (scheduleType === 'weekdays' && days.length === 0) {
+      setError('Choose at least one day.')
       return
     }
     setSaving(true)
@@ -187,26 +193,6 @@ export function HabitForm({
                        transition-all duration-calm ease-calm
                        focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
           />
-
-          <div className="mt-4">
-            <span className="mb-2 block text-sm font-medium text-ink">Colour</span>
-            <div className="flex gap-2">
-              {tones.map((tone, index) => (
-                <button
-                  key={tone.name}
-                  type="button"
-                  onClick={() => setColorIndex(index)}
-                  aria-label={tone.name}
-                  aria-pressed={colorIndex === index}
-                  className={`silicone-swatch h-9 w-9 rounded-full ${tone.className} ${
-                    colorIndex === index
-                      ? 'outline outline-2 outline-offset-2 outline-sage-400'
-                      : ''
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
 
           {/* Repeats */}
           <div className="mt-4">
@@ -324,110 +310,143 @@ export function HabitForm({
             </p>
           </div>
 
-          <div className="mt-4">
-            <label htmlFor="habit-deadline" className="mb-2 block text-sm font-medium text-ink">
-              Daily deadline
-            </label>
-            <div className="relative">
-              <Clock
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <input
-                id="habit-deadline"
-                type="time"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
+          {!showMore ? (
+            <button
+              type="button"
+              onClick={() => setShowMore(true)}
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 hover:text-ink dark:text-sage-300"
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+              More options
+            </button>
+          ) : (
+            <>
+              <div className="mt-4">
+                <span className="mb-2 block text-sm font-medium text-ink">Colour</span>
+                <div className="flex gap-2">
+                  {tones.map((tone, index) => (
+                    <button
+                      key={tone.name}
+                      type="button"
+                      onClick={() => setColorIndex(index)}
+                      aria-label={tone.name}
+                      aria-pressed={colorIndex === index}
+                      className={`silicone-swatch h-9 w-9 rounded-full ${tone.className} ${
+                        colorIndex === index
+                          ? 'outline outline-2 outline-offset-2 outline-sage-400'
+                          : ''
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="habit-deadline" className="mb-2 block text-sm font-medium text-ink">
+                  Daily deadline
+                </label>
+                <div className="relative">
+                  <Clock
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                    aria-hidden
+                  />
+                  <input
+                    id="habit-deadline"
+                    type="time"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
                            text-ink transition-all duration-calm ease-calm
                            focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
-              />
-            </div>
-            <p className="mt-1.5 text-xs text-muted">
-              The time you aim to finish by. A countdown on the card warns you as it approaches.
-            </p>
-            {timeOfDay !== 'anytime' && periodFromDeadline(deadline) !== timeOfDay && (
-              <button
-                type="button"
-                onClick={() => setTimeOfDay(periodFromDeadline(deadline))}
-                className="mt-1.5 text-left text-xs font-medium text-sage-600 hover:text-ink dark:text-sage-300"
-              >
-                This deadline falls in the {PERIOD_LABELS[periodFromDeadline(deadline)]} — tap to
-                match.
-              </button>
-            )}
-          </div>
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-muted">
+                  The time you aim to finish by. A countdown on the card warns you as it approaches.
+                </p>
+                {timeOfDay !== 'anytime' && periodFromDeadline(deadline) !== timeOfDay && (
+                  <button
+                    type="button"
+                    onClick={() => setTimeOfDay(periodFromDeadline(deadline))}
+                    className="mt-1.5 text-left text-xs font-medium text-sage-600 hover:text-ink dark:text-sage-300"
+                  >
+                    This deadline falls in the {PERIOD_LABELS[periodFromDeadline(deadline)]} — tap
+                    to match.
+                  </button>
+                )}
+              </div>
 
-          <div className="mt-4">
-            <label htmlFor="habit-category" className="mb-2 block text-sm font-medium text-ink">
-              Category
-            </label>
-            <div className="relative">
-              <Tag
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <input
-                id="habit-category"
-                list="habit-category-options"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Health"
-                maxLength={40}
-                className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
+              <div className="mt-4">
+                <label htmlFor="habit-category" className="mb-2 block text-sm font-medium text-ink">
+                  Category
+                </label>
+                <div className="relative">
+                  <Tag
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                    aria-hidden
+                  />
+                  <input
+                    id="habit-category"
+                    list="habit-category-options"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="e.g. Health"
+                    maxLength={40}
+                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
                            text-ink placeholder:text-muted/70 transition-all duration-calm ease-calm
                            focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
-              />
-              <datalist id="habit-category-options">
-                {CATEGORY_SUGGESTIONS.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-          </div>
+                  />
+                  <datalist id="habit-category-options">
+                    {CATEGORY_SUGGESTIONS.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
 
-          <div className="mt-4">
-            <label htmlFor="habit-reminder" className="mb-2 block text-sm font-medium text-ink">
-              Reminder <span className="font-normal text-muted">(optional)</span>
-            </label>
-            <div className="relative">
-              <Bell
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <select
-                id="habit-reminder"
-                value={reminderOffset === null ? '' : String(reminderOffset)}
-                onChange={(e) =>
-                  setReminderOffset(e.target.value === '' ? null : Number(e.target.value))
-                }
-                className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
+              <div className="mt-4">
+                <label htmlFor="habit-reminder" className="mb-2 block text-sm font-medium text-ink">
+                  Reminder <span className="font-normal text-muted">(optional)</span>
+                </label>
+                <div className="relative">
+                  <Bell
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                    aria-hidden
+                  />
+                  <select
+                    id="habit-reminder"
+                    value={reminderOffset === null ? '' : String(reminderOffset)}
+                    onChange={(e) =>
+                      setReminderOffset(e.target.value === '' ? null : Number(e.target.value))
+                    }
+                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
                            text-ink transition-all duration-calm ease-calm
                            focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
-              >
-                {REMINDER_OPTIONS.map((option) => (
-                  <option key={option.value ?? 'none'} value={option.value ?? ''}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="mt-1.5 text-xs text-muted">
-              {!settings.notificationsEnabled
-                ? 'Reminders are off — turn them on in Settings.'
-                : reminderOffset === null
-                  ? 'No reminder for this habit.'
-                  : reminderOffset === 0
-                    ? `A nudge at ${formatTime(
-                        reminderClock(deadline, 0),
-                        settings.timeFormat,
-                      )}, when it's due.`
-                    : `A nudge at ${formatTime(
-                        reminderClock(deadline, reminderOffset),
-                        settings.timeFormat,
-                      )}, ${offsetPhrase(reminderOffset)} before the deadline.`}
-            </p>
-          </div>
+                  >
+                    {REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value ?? 'none'} value={option.value ?? ''}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1.5 text-xs text-muted">
+                  {!settings.notificationsEnabled
+                    ? 'Reminders are off — turn them on in Settings.'
+                    : reminderOffset === null
+                      ? 'No reminder for this habit.'
+                      : reminderOffset === 0
+                        ? `A nudge at ${formatTime(
+                            reminderClock(deadline, 0),
+                            settings.timeFormat,
+                          )}, when it's due.`
+                        : `A nudge at ${formatTime(
+                            reminderClock(deadline, reminderOffset),
+                            settings.timeFormat,
+                          )}, ${offsetPhrase(reminderOffset)} before the deadline.`}
+                </p>
+              </div>
+            </>
+          )}
 
           {error && (
             <p className="mt-4 rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">

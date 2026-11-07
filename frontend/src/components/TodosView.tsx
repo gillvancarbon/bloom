@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Archive, Check, ChevronDown, ListChecks, Plus, Search, Sparkles, X } from 'lucide-react'
-import { BrandHeader } from './BrandHeader'
-import { ThemeToggle } from './ThemeToggle'
+import { AppHeader } from './AppHeader'
 import { TodoCard } from './TodoCard'
 import { TodoForm } from './TodoForm'
 import { DeleteConfirm } from './DeleteConfirm'
@@ -58,12 +57,13 @@ const EMPTY_VIEW_TEXT: Record<TodoView, { title: string; hint: string }> = {
   all: { title: 'All clear for now', hint: 'Enjoy the breathing room.' },
 }
 
-/** The visible to-do views: the due-date buckets, plus everything at once. */
 interface TodosViewProps {
   onOpenSettings: () => void
+  onOpenCalendar: () => void
+  onOpenInsights: () => void
 }
 
-export function TodosView({ onOpenSettings }: TodosViewProps) {
+export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: TodosViewProps) {
   const { todos, order, loading, error, busyId, create, update, remove, archive, toggle, move } =
     useTodos()
   const { settings, update: updateSettings } = useSettings()
@@ -311,9 +311,12 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
       <p className="sr-only" role="status" aria-live="polite">
         {liveMessage}
       </p>
-      <BrandHeader subtitle="A calm place for what’s next." onOpenSettings={onOpenSettings}>
-        <ThemeToggle />
-      </BrandHeader>
+      <AppHeader
+        subtitle="A calm place for what’s next."
+        onOpenSettings={onOpenSettings}
+        onOpenCalendar={onOpenCalendar}
+        onOpenInsights={onOpenInsights}
+      />
 
       {/* Stats */}
       <motion.section
@@ -324,8 +327,8 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
       >
         <Stat
           label="Done today"
-          value={`${stats.doneToday} | ${openTodos.length + doneTodayTodos.length}`}
-          title="Tasks completed today / tasks on your board"
+          value={`${stats.doneToday} / ${openTodos.length + doneTodayTodos.length}`}
+          title="Tasks completed today out of tasks on your board"
         />
         <Stat label="Due today" value={stats.dueToday} title="Open tasks due today" />
         <Stat
@@ -562,8 +565,17 @@ export function TodosView({ onOpenSettings }: TodosViewProps) {
           </span>
           <h3 className="font-display text-lg font-semibold text-ink">Nothing on your plate</h3>
           <p className="mt-1 max-w-xs text-sm text-muted">
-            Add a task above and keep it light. Small steps still count.
+            Add a task above, or type a whole sentence into the quick-add line — Bloom works out the
+            date for you.
           </p>
+          <button
+            type="button"
+            onClick={() => setDialog({ type: 'create' })}
+            className="silicone-primary mt-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Add your first task
+          </button>
         </motion.div>
       ) : (
         <>

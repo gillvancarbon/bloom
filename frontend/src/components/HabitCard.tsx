@@ -1,9 +1,9 @@
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Clock, Flame, Moon, Repeat, Sun, Sunrise } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Clock, Flame, Moon, Repeat, Sun, Sunrise } from 'lucide-react'
 import type { DayPeriod, Habit, WeekStart } from '../types'
-import { deadlineState, streakState } from '../lib/streak'
-import { isCompleteForPeriod, scheduleLabel, scheduleProgress } from '../lib/schedule'
+import { deadlineState } from '../lib/streak'
+import { isCompleteForPeriod, scheduleLabel, scheduleProgress, streakState } from '../lib/schedule'
 import { DAY_PERIODS, PERIOD_LABELS } from '../lib/dayPeriod'
 import { formatTime } from '../lib/format'
 import { useSettings } from '../context/SettingsContext'
@@ -29,6 +29,11 @@ interface HabitCardProps {
    * or an "Overdue" warning.
    */
   dueToday?: boolean
+  /** Manual order: move this habit one slot up or down. */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 const palette = [
@@ -101,6 +106,10 @@ export function HabitCard({
   onToggle,
   onChangePeriod,
   dueToday = true,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
 }: HabitCardProps) {
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
   const { settings } = useSettings()
@@ -108,14 +117,24 @@ export function HabitCard({
   const complete = isCompleteForPeriod(habit, now, weekStart)
   const tone = palette[habit.colorIndex % palette.length]
 
-  const streak = streakState(habit, now)
-  // Once today's target is met, the countdown is replaced by a calm "Done".
-  // Off-day habits show their deadline as a plain time, never "Overdue".
+  const streak = streakState(habit, now, settings.weekStart)
+  // Keep the deadline calm: a plain time by default, a countdown only in the
+  // last stretch before it, and a quiet "Past deadline" instead of a red alarm.
+  // Off-day habits show their deadline as a plain time too.
+  const rawDeadline = deadlineState(habit.deadline, now)
+  const byTime = {
+    level: 'calm' as const,
+    text: `by ${formatTime(habit.deadline, settings.timeFormat)}`,
+  }
   const deadline = complete
     ? { level: 'calm' as const, text: 'Done' }
-    : dueToday
-      ? deadlineState(habit.deadline, now)
-      : { level: 'calm' as const, text: `by ${formatTime(habit.deadline, settings.timeFormat)}` }
+    : !dueToday
+      ? byTime
+      : rawDeadline.level === 'overdue'
+        ? { level: 'overdue' as const, text: 'Past deadline' }
+        : rawDeadline.level === 'near'
+          ? rawDeadline
+          : byTime
 
   const flameSize =
     streak.level === 'risk' ? 'h-3 w-3' : streak.level === 'broken' ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'
@@ -138,7 +157,7 @@ export function HabitCard({
     deadline.level === 'near'
       ? 'text-peach-500 dark:text-peach-300'
       : deadline.level === 'overdue'
-        ? 'font-semibold text-peach-600 dark:text-peach-200'
+        ? 'font-medium text-amber-600 dark:text-amber-300'
         : 'text-muted dark:text-ink/80'
 
   const progress = scheduleProgress(habit, now, weekStart)
@@ -177,8 +196,8 @@ export function HabitCard({
               : `Mark ${habit.name} complete today`
           }
           title={complete ? 'Undo today’s completion' : 'Mark complete today'}
-          className={`${complete ? 'silicone-primary' : 'silicone'} flex h-10 w-10 shrink-0 items-center justify-center
-                      rounded-full sm:h-11 sm:w-11 ${busy ? 'opacity-60' : ''}`}
+          className={`${complete ? 'silicone-primary' : 'silicone'} flex h-12 w-12 shrink-0 items-center justify-center
+                      rounded-full ${busy ? 'opacity-60' : ''}`}
         >
           <Check
             className={`h-5 w-5 transition-all duration-calm ease-calm ${
@@ -197,7 +216,7 @@ export function HabitCard({
               {habit.name}
             </h3>
             {habit.category && (
-              <span className="shrink-0 rounded-md bg-mint-100 px-2 py-0.5 text-[11px] font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
+              <span className="shrink-0 rounded-md bg-mint-100 px-2 py-0.5 text-xs font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
                 {habit.category}
               </span>
             )}
@@ -247,11 +266,37 @@ export function HabitCard({
                 {PERIOD_LABELS[habit.timeOfDay]}
               </button>
             )}
+            {(onMoveUp || onMoveDown) && (
+              <div className="inline-flex items-center gap-1" aria-label={`Reorder ${habit.name}`}>
+                {onMoveUp && (
+                  <button
+                    type="button"
+                    onClick={onMoveUp}
+                    disabled={!canMoveUp}
+                    aria-label={`Move ${habit.name} up`}
+                    className="silicone flex h-11 w-11 items-center justify-center rounded-full text-muted
+                               transition-colors duration-calm ease-calm hover:text-ink disabled:opacity-40"
+                  >
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
+                {onMoveDown && (
+                  <button
+                    type="button"
+                    onClick={onMoveDown}
+                    disabled={!canMoveDown}
+                    aria-label={`Move ${habit.name} down`}
+                    className="silicone flex h-11 w-11 items-center justify-center rounded-full text-muted
+                               transition-colors duration-calm ease-calm hover:text-ink disabled:opacity-40"
+                  >
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           {habit.archived && (
-            <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-              Archived
-            </p>
+            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted">Archived</p>
           )}
         </div>
 

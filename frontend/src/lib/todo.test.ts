@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Todo } from '../types'
 import {
+  addMonths,
   matchesTodo,
   nextOccurrence,
   normalizeTodo,
@@ -8,6 +9,7 @@ import {
   subtaskProgress,
   todoBucket,
 } from './todo'
+import { toISODate } from './streak'
 
 function todo(overrides: Partial<Todo>): Todo {
   return normalizeTodo({
@@ -160,10 +162,26 @@ describe('nextOccurrence', () => {
 
   it('clamps month ends', () => {
     expect(nextOccurrence('2026-01-31', 'monthly', new Date(2026, 0, 31))).toBe('2026-02-28')
+    // The next step must stay on the month's last day, not drift to the 28th.
+    expect(nextOccurrence('2026-01-31', 'monthly', new Date(2026, 1, 28))).toBe('2026-03-31')
   })
 
   it('anchors to today when there is no due date', () => {
     expect(nextOccurrence(null, 'daily', now)).toBe('2026-11-06')
+  })
+})
+
+describe('addMonths', () => {
+  it('preserves the month-end chain Jan 31 → Feb 28 → Mar 31', () => {
+    const feb = addMonths(new Date(2026, 0, 31), 1)
+    expect(toISODate(feb)).toBe('2026-02-28')
+    const mar = addMonths(feb, 1)
+    expect(toISODate(mar)).toBe('2026-03-31')
+  })
+
+  it('clamps a normal day without treating it as month-end', () => {
+    expect(toISODate(addMonths(new Date(2026, 0, 30), 1))).toBe('2026-02-28')
+    expect(toISODate(addMonths(new Date(2026, 0, 15), 1))).toBe('2026-02-15')
   })
 })
 

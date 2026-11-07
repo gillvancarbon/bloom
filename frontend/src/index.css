@@ -16,7 +16,7 @@
   --line: 224 232 224; /* pale sage line */
   --shadow: 37 66 46; /* sage-tinted shadow */
   --cal-none: 233 240 233; /* no data — pale sage wash */
-  --cal-empty: 214 106 94; /* nothing done — soft red */
+  --cal-empty: 226 220 210; /* nothing logged — neutral warm sand, never red */
   --cal-partial: 224 158 60; /* some done — amber */
   --cal-full: 96 158 106; /* all done — green */
   color-scheme: light;
@@ -31,7 +31,7 @@
   --line: 56 66 57; /* dark sage line */
   --shadow: 0 0 0; /* neutral shadow on dark */
   --cal-none: 45 54 46; /* no data */
-  --cal-empty: 168 82 74; /* nothing done */
+  --cal-empty: 78 84 78; /* nothing logged — neutral, never red */
   --cal-partial: 178 126 56; /* some done */
   --cal-full: 88 136 98; /* all done */
   color-scheme: dark;
@@ -160,6 +160,22 @@ textarea,
 .silicone-frost:not(:disabled):active {
   box-shadow: var(--neo-sink);
   transform: scale(0.98);
+}
+
+/* A faint tonal edge on the neutral controls, so icon-only buttons stay
+   legible in dark mode instead of relying on their shadow alone. */
+.silicone,
+.silicone-quiet {
+  box-shadow:
+    var(--neo-raise),
+    inset 0 0 0 1px rgb(var(--line) / 0.9);
+}
+
+.silicone:not(:disabled):hover,
+.silicone-quiet:not(:disabled):hover {
+  box-shadow:
+    var(--neo-raise-hover),
+    inset 0 0 0 1px rgb(var(--line) / 0.9);
 }
 
 /* Primary — sage, softly convex */

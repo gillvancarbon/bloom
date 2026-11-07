@@ -100,7 +100,8 @@ It groups:
 - **Habits** — follow the clock, and hide completed habits.
 - **Data & backups** — automatic backups (with the last backup time, a
   *Back up now* button and restore points), JSON export and import, and a
-  confirm-gated *Clear all habits and tasks* action.
+  confirm-gated *Clear all habits and tasks* action. On Android, export opens
+  the system share sheet so the file can be saved to Files, Drive or sent on.
 - **Help** — the **How to use Bloom** guide (the complete manual), and
   **Replay** for the welcome tour.
 - **About** — version, the privacy summary, terms of use, the full guide, and

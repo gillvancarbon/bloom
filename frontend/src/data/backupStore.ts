@@ -86,6 +86,17 @@ export const backupStore = {
   async restore(backup: Backup): Promise<void> {
     // Take a safety snapshot first so a restore is itself undoable.
     await backupStore.create('before restore')
+
+    // A restore replaces the dataset: drop any `bloom.*` key the backup doesn't
+    // know about, so data added after the snapshot can't leak into the restore.
+    const restored = new Set(Object.keys(backup.data))
+    const { keys } = await Preferences.keys()
+    for (const key of keys) {
+      if (!key.startsWith(DATA_PREFIX) || key === BACKUPS_KEY) continue
+      if (restored.has(key)) continue
+      await Preferences.remove({ key })
+    }
+
     for (const [key, value] of Object.entries(backup.data)) {
       await Preferences.set({ key, value })
     }

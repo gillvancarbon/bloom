@@ -38,6 +38,8 @@ public class HabitService {
         existing.setDeadline(updatedHabit.getDeadline());
         existing.setSchedule(updatedHabit.getSchedule());
         existing.setCategory(updatedHabit.getCategory());
+        existing.setTimeOfDay(updatedHabit.getTimeOfDay());
+        existing.setTarget(updatedHabit.getTarget());
         existing.setReminderOffset(updatedHabit.getReminderOffset());
         return habitRepository.save(existing);
     }

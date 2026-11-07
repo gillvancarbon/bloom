@@ -15,9 +15,7 @@ export function Stat({ label, value, accent, title, icon: Icon }: StatProps) {
       title={title}
       className="rounded-calm border border-line bg-raised px-1.5 py-3 text-center shadow-calm sm:px-4"
     >
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted sm:text-xs">
-        {label}
-      </p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
       <p
         className={`mt-1 flex items-center justify-center gap-1 font-display text-lg font-semibold sm:text-xl ${
           accent ? 'text-peach-500 dark:text-peach-300' : 'text-ink'

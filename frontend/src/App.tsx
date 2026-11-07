@@ -21,6 +21,9 @@ export default function App() {
   // Set when the welcome tour asks for the habit templates, so the Habits
   // screen opens the picker as soon as it is showing.
   const [openTemplates, setOpenTemplates] = useState(false)
+  // Calendar/Insights live on the Habits screen, but their shortcuts are on
+  // every tab. Tapping them elsewhere switches to Habits and asks it to open.
+  const [pendingOverlay, setPendingOverlay] = useState<'calendar' | 'insights' | null>(null)
   const settingsOpenRef = useRef(settingsOpen)
   settingsOpenRef.current = settingsOpen
 
@@ -112,17 +115,29 @@ export default function App() {
             onOpenSettings={() => setSettingsOpen(true)}
             autoOpenTemplates={openTemplates}
             onTemplatesHandled={templatesHandled}
+            autoOpenOverlay={pendingOverlay}
+            onOverlayHandled={() => setPendingOverlay(null)}
           />
         ) : (
-          <TodosView onOpenSettings={() => setSettingsOpen(true)} />
+          <TodosView
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenCalendar={() => {
+              setTab('habits')
+              setPendingOverlay('calendar')
+            }}
+            onOpenInsights={() => {
+              setTab('habits')
+              setPendingOverlay('insights')
+            }}
+          />
         )}
       </motion.div>
 
       <BottomNav tab={tab} onChange={changeTab} />
 
-      <AnimatePresence>
-        {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
-      </AnimatePresence>
+      {/* Rendered directly (not via AnimatePresence): the dialog has no exit
+          animation, and AnimatePresence could keep it mounted after a close. */}
+      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
 
       <AnimatePresence>{showTerms && <TermsGate />}</AnimatePresence>
       <AnimatePresence>{showIntro && <IntroFlow onFinish={finishIntro} />}</AnimatePresence>

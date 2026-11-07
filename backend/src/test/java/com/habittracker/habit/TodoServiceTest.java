@@ -180,6 +180,23 @@ class TodoServiceTest {
     }
 
     @Test
+    void monthlyRecurrenceKeepsTheMonthEnd() {
+        // Jan 31 → Feb 28 → Mar 31, rather than drifting down to Mar 28.
+        assertThat(TodoService.nextMonthly(LocalDate.of(2026, 1, 31)))
+                .isEqualTo(LocalDate.of(2026, 2, 28));
+        assertThat(TodoService.nextMonthly(LocalDate.of(2026, 2, 28)))
+                .isEqualTo(LocalDate.of(2026, 3, 31));
+    }
+
+    @Test
+    void monthlyRecurrenceKeepsTheDayForNonMonthEndDates() {
+        assertThat(TodoService.nextMonthly(LocalDate.of(2026, 3, 15)))
+                .isEqualTo(LocalDate.of(2026, 4, 15));
+        assertThat(TodoService.nextMonthly(LocalDate.of(2026, 1, 30)))
+                .isEqualTo(LocalDate.of(2026, 2, 28));
+    }
+
+    @Test
     void missingTaskRaisesNotFound() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getTodoById(99L))

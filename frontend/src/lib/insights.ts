@@ -1,17 +1,24 @@
 import type { Habit, WeekStart } from '../types'
 import { createdDate } from './calendar'
 import { toISODate, daysSince, todayISO, keptDates } from './streak'
-import { scheduleProgress, weekRange } from './schedule'
+import { scheduledOccurrencesMissed, streakState, weekRange } from './schedule'
 
-/** Longest run of consecutive completed days in a habit's history. */
-export function bestStreak(habit: Habit): number {
+/**
+ * Longest run of kept days in a habit's history. A run continues across two
+ * consecutive kept days only when the habit's schedule expects nothing in
+ * between — so a weekday habit survives a weekend while a daily habit doesn't.
+ */
+export function bestStreak(habit: Habit, weekStart: WeekStart = 1): number {
   // Frozen days count as kept, so protected streaks read correctly here too.
   const days = keptDates(habit)
   let best = 0
   let run = 0
   let prev: string | null = null
   for (const day of days) {
-    if (prev && daysSince(prev, new Date(`${day}T00:00:00`)) === 1) {
+    const continues =
+      prev !== null &&
+      scheduledOccurrencesMissed(habit, prev, new Date(`${day}T00:00:00`), weekStart) === 0
+    if (continues) {
       run += 1
     } else {
       run = 1
@@ -134,18 +141,25 @@ export function insightsSummary(
   weekStart: WeekStart,
 ): InsightsSummary {
   const live = habits.filter((h) => !h.archived)
-  const points = dailyCompletion(habits, now, 30, historyStart)
+  // Archived habits are excluded everywhere, so the rate denominator matches
+  // the per-habit list and the perfect-day run.
+  const points = dailyCompletion(live, now, 30, historyStart)
 
   let collectiveBest = 0
   let topHabit: Habit | null = null
+  let topStreak = 0
   let totalCompletions = 0
-  for (const habit of habits) {
+  for (const habit of live) {
     totalCompletions += habit.history.length
-    const best = bestStreak(habit)
+    const best = bestStreak(habit, weekStart)
     if (best > collectiveBest) collectiveBest = best
-    const progress = scheduleProgress(habit, now, weekStart)
-    if (progress.complete && (!topHabit || progress.done > 0)) {
-      topHabit = topHabit ?? habit
+  }
+  // The habit to celebrate: the live one with the longest current streak.
+  for (const habit of live) {
+    const { count } = streakState(habit, now, weekStart)
+    if (count > topStreak) {
+      topStreak = count
+      topHabit = habit
     }
   }
 
@@ -219,8 +233,8 @@ export interface Milestone {
 }
 
 /** Gentle badges earned from a habit's best streak and total completions. */
-export function milestones(habit: Habit): Milestone[] {
-  const best = bestStreak(habit)
+export function milestones(habit: Habit, weekStart: WeekStart = 1): Milestone[] {
+  const best = bestStreak(habit, weekStart)
   const total = habit.history.length
   return [
     { id: 'streak-7', label: '7-day streak', reached: best >= 7 },

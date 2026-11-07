@@ -53,6 +53,21 @@ export interface ParsedBundle {
   settings?: Settings
 }
 
+/** Require a positive-integer, unique `id` on every record of a collection. */
+function assertRecordIds(records: unknown[], label: string): void {
+  const seen = new Set<number>()
+  for (const record of records) {
+    const id = (record as { id?: unknown } | null | undefined)?.id
+    if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+      throw new Error(`That file has a ${label} without a valid id.`)
+    }
+    if (seen.has(id)) {
+      throw new Error(`That file has more than one ${label} with id ${id}.`)
+    }
+    seen.add(id)
+  }
+}
+
 /**
  * Read a previously exported file back. Tolerant about extra fields and older
  * exports (each record is normalised), but strict about the overall shape so a
@@ -77,7 +92,9 @@ export function parseBundle(text: string): ParsedBundle {
     settings?: unknown
     schemaVersion?: unknown
   }
-  if (!Array.isArray(record.habits) && !Array.isArray(record.todos)) {
+  const hasHabits = Array.isArray(record.habits)
+  const hasTodos = Array.isArray(record.todos)
+  if (!hasHabits && !hasTodos) {
     throw new Error('That file doesn’t contain any habits or tasks.')
   }
 
@@ -89,31 +106,23 @@ export function parseBundle(text: string): ParsedBundle {
     )
   }
 
-  const habits = Array.isArray(record.habits)
-    ? record.habits.map((habit) => normalizeHabit(habit as Partial<Habit> & { id: number }))
-    : []
-  const todos = Array.isArray(record.todos)
-    ? record.todos.map((todo) => normalizeTodo(todo as Todo))
-    : []
+  // A Bloom export always carries both collections: requiring both stops a
+  // partial file from silently wiping the collection it omitted.
+  if (!hasHabits || !hasTodos) {
+    throw new Error('That file is incomplete — a Bloom export needs both habits and tasks.')
+  }
+
+  assertRecordIds(record.habits as unknown[], 'habit')
+  assertRecordIds(record.todos as unknown[], 'task')
+
+  const habits = (record.habits as Array<Partial<Habit> & { id: number }>).map((habit) =>
+    normalizeHabit(habit),
+  )
+  const todos = (record.todos as Todo[]).map((todo) => normalizeTodo(todo))
   const settings =
     record.settings && typeof record.settings === 'object'
       ? normalizeSettings(record.settings as Partial<Settings>)
       : undefined
 
   return { habits, todos, ...(settings ? { settings } : {}) }
-}
-
-/** Trigger a file download. A no-op in non-browser environments. */
-export function downloadFile(filename: string, mimeType: string, content: string): void {
-  if (typeof document === 'undefined') return
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  // Give the browser a moment to start the download before revoking.
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

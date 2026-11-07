@@ -32,6 +32,30 @@ describe('bestStreak', () => {
   it('is zero for a habit with no history', () => {
     expect(bestStreak(habit({ id: 2 }))).toBe(0)
   })
+
+  it('carries a weekday run across a weekend but breaks a daily one', () => {
+    const fortnight = [
+      '2026-06-01',
+      '2026-06-02',
+      '2026-06-03',
+      '2026-06-04',
+      '2026-06-05',
+      '2026-06-08',
+      '2026-06-09',
+      '2026-06-10',
+      '2026-06-11',
+      '2026-06-12',
+    ]
+    const weekdays = habit({
+      id: 24,
+      schedule: { type: 'weekdays', days: [1, 2, 3, 4, 5] },
+      history: fortnight,
+    })
+    expect(bestStreak(weekdays, 1)).toBe(10)
+
+    const daily = habit({ id: 25, history: fortnight })
+    expect(bestStreak(daily, 1)).toBe(5)
+  })
 })
 
 describe('dailyCompletion', () => {
@@ -93,6 +117,31 @@ describe('insightsSummary', () => {
     expect(summary.weekRate).toBe(0)
     expect(summary.monthRate).toBe(0)
     expect(summary.totalCompletions).toBe(0)
+  })
+
+  it('celebrates the live habit with the longest current streak, never an archived one', () => {
+    const short = habit({
+      id: 30,
+      history: ['2026-06-10'],
+      streakCount: 1,
+      lastCompletedDate: '2026-06-10',
+    })
+    const long = habit({
+      id: 31,
+      history: ['2026-06-09', '2026-06-10'],
+      streakCount: 10,
+      lastCompletedDate: '2026-06-10',
+    })
+    const archived = habit({
+      id: 32,
+      history: ['2026-06-10'],
+      streakCount: 99,
+      lastCompletedDate: '2026-06-10',
+      archived: true,
+    })
+
+    const summary = insightsSummary([short, long, archived], NOW, null, 1)
+    expect(summary.topHabit?.id).toBe(31)
   })
 })
 

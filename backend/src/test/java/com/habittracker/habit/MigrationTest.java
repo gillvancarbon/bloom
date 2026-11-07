@@ -31,20 +31,22 @@ class MigrationTest {
     @Test
     void migratesFromEmptyToTheLatestSchema() throws Exception {
         Flyway flyway = flyway("bloom-schema");
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(6);
 
         MigrationInfo[] applied = flyway.info().applied();
-        assertThat(applied).hasSize(5);
-        assertThat(applied[applied.length - 1].getVersion().getVersion()).isEqualTo("5");
+        assertThat(applied).hasSize(6);
+        assertThat(applied[applied.length - 1].getVersion().getVersion()).isEqualTo("6");
 
         try (Connection connection = DriverManager.getConnection(
                 "jdbc:h2:mem:bloom-schema;DB_CLOSE_DELAY=-1", "sa", "")) {
             assertThat(columns(connection, "TODOS"))
                     .contains("RECURRENCE", "SUBTASKS", "IMPORTANCE", "IS_ARCHIVED", "DUE_TIME");
             assertThat(columns(connection, "HABITS"))
-                    .contains("REMINDER_OFFSET", "TIME_OF_DAY", "SCHEDULE_TYPE", "REMINDER_TIME");
+                    .contains("REMINDER_OFFSET", "TIME_OF_DAY", "SCHEDULE_TYPE", "REMINDER_TIME", "TARGET");
             assertThat(columns(connection, "HABIT_COMPLETIONS"))
                     .contains("HABIT_ID", "COMPLETED_DATE");
+            assertThat(columns(connection, "HABIT_FROZEN"))
+                    .contains("HABIT_ID", "FROZEN_DATE");
         }
     }
 
