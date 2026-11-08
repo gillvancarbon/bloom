@@ -17,8 +17,8 @@ free for personal, noncommercial use. New here? Read the
   - Tap the **leaf** on the right of a card to reveal the pencil and trash
     actions.
   - Deleting asks for **confirmation** first — no accidents.
-- **Useful daily stats** — Habits shows *Done today*, *Remaining*, and
-  *Overdue*; To-do shows *Done today*, *Due today*, and *Overdue*.
+- **Useful daily stats** — Habits shows _Done today_, _Remaining_, and
+  _Overdue_; To-do shows _Done today_, _Due today_, and _Overdue_.
 - **To-do list** — every task has a type (Chores, Schoolwork, Work, Personal,
   Health, Errands), a priority, an optional note, due date/time, a repeat, and an
   optional checklist.
@@ -39,18 +39,20 @@ free for personal, noncommercial use. New here? Read the
     reminds you once more that it's overdue. Completed tasks never remind, and
     each due occurrence nudges at most once.
   - Completed tasks move into a **Done today** section and can be undone.
-- **Streak counter** on every habit, with a one-tap daily completion circle
-  that you can tap again to **undo** an accidental completion.
-  - A one-day **grace period**: the flame shrinks to warn you after a missed day,
-    and the streak only resets once a second day is missed.
+- **Streak display** on every habit — a one-tap daily completion circle that you
+  can tap again to **undo** an accidental completion. Choose how streaks read in
+  **Settings → Habits & Tasks**: **Flame** (the day count), **Momentum** (days
+  done in the last 30 — the default), or **Hidden**.
+  - A one-day **grace period**: in Flame mode the flame shrinks to warn you after
+    a missed day, and the streak only resets once a second day is missed.
 - **Daily deadline** per habit (set when adding/editing). Each card shows a
   live countdown to the deadline that turns peach when it's under two hours away
   (and reads "Overdue" once it passes).
 - **Consistency calendar** — tap the calendar icon beside the theme toggle to
   open a full-screen month view. Each day shows a short line: **green** when every
-  habit was done that day, **amber** when only some were, and **red** when none
-  were. Days before you started tracking stay blank, and months cross-slide
-  smoothly as you browse.
+  habit was done that day, **amber** when only some were, and left **neutral**
+  when none were (no red "failure" days). Days before you started tracking stay
+  blank, and months cross-slide smoothly as you browse.
 - **Light / dark mode** toggle with smooth 300 ms colour transitions.
 - Only **three hue families** — sage (primary), peach (accent), and mint
   (calm) — plus softly tinted neutrals. Everything adjusts for each theme.
@@ -65,12 +67,12 @@ free for personal, noncommercial use. New here? Read the
   guide lives in Settings, and the welcome tour can be replayed any time.
 - **Settings** — tap the **Bloom logo** in the top-left to open it:
   reminders and sounds, appearance, habit options, automatic backups, and a
-  confirm-gated *Clear all habits and tasks* action.
+  confirm-gated _Clear all habits and tasks_ action.
 - **Richer habits** — repeat **every day**, on **chosen weekdays**, or a
   flexible **N× per week** target; add a **category**; see **target vs. actual**
   progress; **archive** habits (from the edit dialog) and **drag to reorder**
   them.
-- **Insights** — weekly and monthly completion rates, perfect-day streaks, a
+- **Insights** — weekly and monthly completion rates, full days in a row, a
   30-day trend chart, and per-habit totals.
 - **Reminders** — a per-habit or default reminder time, delivered as
   on-device notifications (with a browser fallback on the web).
@@ -82,7 +84,7 @@ free for personal, noncommercial use. New here? Read the
   is applied once the undo window closes, and survives a reload.
 - **Your format** — 12- or 24-hour clock and a configurable week start
   (Sunday or Monday).
-- **Home-screen widget** *(Android)* — a quiet snapshot of today's habits
+- **Home-screen widget** _(Android)_ — a quiet snapshot of today's habits
   with a progress bar and up to three habit rows.
 
 ## Settings
@@ -91,16 +93,21 @@ Open Settings by tapping the **Bloom logo** at the top-left of either screen.
 It groups:
 
 - **Reminders** — daily reminders and task reminders on/off (tasks nudge at
-  their due moment and again, once, if still open), and a default reminder time
-  (timed to each habit's own deadline).
+  their due moment and again, once, if still open), a default reminder time
+  (timed to each habit's own deadline), **quiet hours** that skip reminders in a
+  set window, an optional one-per-hour **reminder digest**, and an **overdue task
+  nudges** toggle.
 - **Sound** — the reminder sound and the completion ding, chosen from the
   phone's notification sounds.
 - **Appearance** — light / dark theme, 12/24-hour clock, and week start
   (Sunday or Monday).
-- **Habits** — follow the clock, and hide completed habits.
+- **Habits & Tasks** — streak display (flame, momentum or hidden), follow the
+  clock with an optional **announce period changes** notice and Undo, hide
+  completed habits, opt-in **celebrations** and **haptics**, and quick-add
+  guidance.
 - **Data & backups** — automatic backups (with the last backup time, a
-  *Back up now* button and restore points), JSON export and import, and a
-  confirm-gated *Clear all habits and tasks* action. On Android, export opens
+  _Back up now_ button and restore points), JSON export and import, and a
+  confirm-gated _Clear all habits and tasks_ action. On Android, export opens
   the system share sheet so the file can be saved to Files, Drive or sent on.
 - **Help** — the **How to use Bloom** guide (the complete manual), and
   **Replay** for the welcome tour.
@@ -112,12 +119,12 @@ must accept the [Terms of use](#terms-of-use) before the app opens.
 
 ## Tech Stack
 
-| Layer | Technology |
-|------------|----------------------------------------------|
-| Backend | Spring Boot 3.2 · Java 21 · Spring Data JPA |
+| Layer    | Technology                                     |
+| -------- | ---------------------------------------------- |
+| Backend  | Spring Boot 3.2 · Java 21 · Spring Data JPA    |
 | Database | H2 (file-based, zero setup) · PostgreSQL-ready |
-| Frontend | React 18 · TypeScript · Vite |
-| Styling | Tailwind CSS · Framer Motion · lucide-react |
+| Frontend | React 18 · TypeScript · Vite                   |
+| Styling  | Tailwind CSS · Framer Motion · lucide-react    |
 
 ## Requirements
 
@@ -189,7 +196,7 @@ APK is built by CI on a `v*` tag (or manually) and attached to a GitHub Release;
 the Android job reads the keystore from repository secrets, so the keystore and
 `keystore.properties` are never committed.
 
-**Testing requirement.** Google requires new *personal* developer accounts to
+**Testing requirement.** Google requires new _personal_ developer accounts to
 run a closed test before production: at least **12 testers opted in for 14
 continuous days**, after which you can apply for production access. Line up a
 small group of real users (friends, family or a testers' community) and keep
@@ -220,7 +227,6 @@ git tag v1.3.1 && git push origin v1.3.1
 ```
 
 ## Project layout
-
 
 ```
 habit-tracker/
@@ -319,25 +325,25 @@ habit-tracker/
 
 Every endpoint is also available under a versioned `/api/v1/…` alias.
 
-| Method | Path | Description |
-|--------|-----------------------------------|--------------------------|
-| GET | `/api/habits` | List all habits |
-| GET | `/api/habits/{id}` | Get one habit |
-| POST | `/api/habits` | Create a habit |
-| PUT | `/api/habits/{id}` | Update a habit |
-| DELETE | `/api/habits/{id}` | Delete a habit |
-| PUT | `/api/habits/order` | Persist a drag-to-reorder sequence `{ "ids": [...] }` |
-| POST | `/api/habits/{id}/archive` | Archive / restore a habit `{ "archived": true }` |
-| POST | `/api/habits/{id}/streak/increment` | Mark done today |
-| POST | `/api/habits/{id}/streak/decrement` | Reset the streak |
-| POST | `/api/habits/{id}/streak/toggle` | Toggle today's completion |
-| GET | `/api/calendar` | When consistency tracking began |
-| GET | `/api/todos` | List all tasks |
-| GET | `/api/todos/{id}` | Get one task |
-| POST | `/api/todos` | Create a task |
-| PUT | `/api/todos/{id}` | Update a task |
-| DELETE | `/api/todos/{id}` | Delete a task |
-| POST | `/api/todos/{id}/toggle` | Toggle completion |
+| Method | Path                                | Description                                           |
+| ------ | ----------------------------------- | ----------------------------------------------------- |
+| GET    | `/api/habits`                       | List all habits                                       |
+| GET    | `/api/habits/{id}`                  | Get one habit                                         |
+| POST   | `/api/habits`                       | Create a habit                                        |
+| PUT    | `/api/habits/{id}`                  | Update a habit                                        |
+| DELETE | `/api/habits/{id}`                  | Delete a habit                                        |
+| PUT    | `/api/habits/order`                 | Persist a drag-to-reorder sequence `{ "ids": [...] }` |
+| POST   | `/api/habits/{id}/archive`          | Archive / restore a habit `{ "archived": true }`      |
+| POST   | `/api/habits/{id}/streak/increment` | Mark done today                                       |
+| POST   | `/api/habits/{id}/streak/decrement` | Reset the streak                                      |
+| POST   | `/api/habits/{id}/streak/toggle`    | Toggle today's completion                             |
+| GET    | `/api/calendar`                     | When consistency tracking began                       |
+| GET    | `/api/todos`                        | List all tasks                                        |
+| GET    | `/api/todos/{id}`                   | Get one task                                          |
+| POST   | `/api/todos`                        | Create a task                                         |
+| PUT    | `/api/todos/{id}`                   | Update a task                                         |
+| DELETE | `/api/todos/{id}`                   | Delete a task                                         |
+| POST   | `/api/todos/{id}/toggle`            | Toggle completion                                     |
 
 Example:
 

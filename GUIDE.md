@@ -74,14 +74,18 @@ In a hurry, tap **Templates** beside Add habit and pick from ready-made habits.
 
 Tap the circle on a card to mark it done for the day; tap again to undo. A gentle
 ding plays and the card settles into the done state. Completed habits can be
-hidden with **Settings → Habits → Hide completed**.
+hidden with **Settings → Habits & Tasks → Hide completed**.
 
 ### Streaks and freezes
 
-Each completed day grows a habit's flame. Miss a day and the flame shrinks but
-survives; miss a second day in a row and the streak resets. The frozen-flame
-token holds three **streak freezes** a week — spend one on a habit with a missed
-day to keep its streak alive.
+How streaks read is up to you — **Settings → Habits & Tasks → Streak display**
+switches between **Flame** (the day count), **Momentum** (days done in the last
+30, the default) and **Hidden**.
+
+In Flame mode, each completed day grows a habit's flame. Miss a day and the
+flame shrinks but survives; miss a second day in a row and the streak resets.
+The frozen-flame token holds three **streak freezes** a week — spend one on a
+habit with a missed day to keep its streak alive.
 
 ### Periods and order
 
@@ -126,13 +130,13 @@ Quick add also guides you:
 
 What quick add understands:
 
-| Kind | Examples |
-|------|----------|
-| Dates | `today`, `tonight`, `tomorrow`, `friday`, `next friday`, `in 3 days`, `in 2 weeks`, `2026-11-10`, `10/11`, `10 nov`, `nov 10` |
-| Times | `at 5pm`, `at 5:30pm`, `17:30`, `noon`, `midnight` (`tonight` implies 8pm) |
-| Priority | `!high`, `!medium`, `!low`, `!!!`, `!!` |
-| Type | `#work`, `#health`, `#chores`, `#schoolwork`, `#errands`, `#personal` |
-| Repeat | `every day`, `every week`, `every month`, `every monday`, `daily`, `weekly`, `monthly` |
+| Kind     | Examples                                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Dates    | `today`, `tonight`, `tomorrow`, `friday`, `next friday`, `in 3 days`, `in 2 weeks`, `2026-11-10`, `10/11`, `10 nov`, `nov 10` |
+| Times    | `at 5pm`, `at 5:30pm`, `17:30`, `noon`, `midnight` (`tonight` implies 8pm)                                                    |
+| Priority | `!high`, `!medium`, `!low`, `!!!`, `!!`                                                                                       |
+| Type     | `#work`, `#health`, `#chores`, `#schoolwork`, `#errands`, `#personal`                                                         |
+| Repeat   | `every day`, `every week`, `every month`, `every monday`, `daily`, `weekly`, `monthly`                                        |
 
 For example: `file taxes #work !high`, `water plants every monday`,
 `standup at 9:30am`.
@@ -226,7 +230,8 @@ right from the widget.
   while the tab is open.
 - **A streak reset.** A missed day shrinks the flame; a second missed day in a
   row resets it. Spend a streak freeze to protect a habit with a single missed
-  day.
+  day, or switch **Streak display** to **Momentum** or **Hidden** if you would
+  rather not see a count.
 - **Where is my data?** It is on your device. Use **Data & backups** to export,
   import or restore.
 - **Undo a delete.** A short **Undo** toast appears after deleting a habit or

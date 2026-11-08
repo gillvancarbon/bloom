@@ -4,6 +4,58 @@ All notable changes to Bloom are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-11-09
+
+A calmer, more forgiving pass: streaks can step back, nudges can be quieted, and
+the app is harder to lose data to.
+
+### Added
+
+- **Streak display** — choose how streaks read in **Settings → Habits & Tasks**:
+  **Flame** (the day count), **Momentum** (days done in the last 30 — the new
+  default), or **Hidden**. The habits header still shows the day streak.
+- **Quiet hours** — a daily window in which reminders are skipped; **Reminder
+  digest** bundles habit nudges into one message per hour; and an **Overdue task
+  nudges** toggle.
+- **Celebrations and haptics** — opt-in, off by default: a gentle pulse on
+  completion and a short vibration.
+- **Announce period changes** — when "follow the clock" moves the visible
+  period, a short notice with **Undo** explains what moved.
+- **Quick-add guidance** toggle for the to-do quick-add line.
+
+### Changed
+
+- **Habit cards are easier to act on** — the actions menu is a visible, labelled
+  button (no more hidden leaf), and reorder controls are always available in
+  manual order.
+- **Insights and the calendar no longer read as failure** — "perfect days" are
+  now "full days", and days with nothing logged are neutral rather than red.
+- **Onboarding** nudges starting with one to three habits, and templates mark a
+  few good first habits.
+- Momentum is the default streak presentation, so a missed day is framed as a
+  dip rather than a reset.
+
+### Removed
+
+- **Habit quick-add** on the Habits screen. Adding a habit is via **Add habit**
+  or **Templates**; the to-do quick-add line is unchanged.
+
+### Fixed
+
+- Opt-in **haptics now work on Android** (the release build requests the
+  vibration permission).
+- Near-deadline and overdue text now meets **WCAG AA** contrast.
+- **No lost updates** — on-device writes are serialised, so rapid taps can't
+  drop a change or reuse an id, and a pending delete survives a failed request.
+- **No crash on malformed data** — bad due dates from an import or corrupt
+  storage are dropped instead of blanking the to-do list, and imports are
+  validated (invalid bodies return `400`, not `500`).
+- The **last-backup time** is persisted, and spending streak freezes can no
+  longer overspend.
+- Habit list loads issue far fewer database queries, and **reorder** is a single
+  batched write.
+- Release builds never expose signing secrets to dependency install steps.
+
 ## [1.4.0] — 2026-11-08
 
 ### Added
