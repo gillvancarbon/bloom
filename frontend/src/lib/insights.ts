@@ -35,6 +35,22 @@ export interface DailyPoint {
   total: number
 }
 
+/**
+ * A habit's creation date and history resolved once, so multi-day loops don't
+ * re-parse `createdAt` or do a linear `history.includes` scan every iteration.
+ */
+interface PreparedHabit {
+  createdISO: string
+  history: Set<string>
+}
+
+function prepareHabits(habits: Habit[]): PreparedHabit[] {
+  return habits.map((habit) => ({
+    createdISO: createdDate(habit.createdAt),
+    history: new Set(habit.history),
+  }))
+}
+
 /** Per-day done/total for the last `days` days (oldest first), for a bar chart. */
 export function dailyCompletion(
   habits: Habit[],
@@ -42,13 +58,14 @@ export function dailyCompletion(
   days: number,
   historyStart: string | null,
 ): DailyPoint[] {
+  const prepared = prepareHabits(habits)
   const points: DailyPoint[] = []
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
     const iso = toISODate(date)
-    const active = habits.filter((h) => createdDate(h.createdAt) <= iso)
+    const active = prepared.filter((h) => h.createdISO <= iso)
     const live = !historyStart || iso >= historyStart
-    const done = live ? active.filter((h) => h.history.includes(iso)).length : 0
+    const done = live ? active.filter((h) => h.history.has(iso)).length : 0
     points.push({ iso, done, total: live ? active.length : 0 })
   }
   return points
@@ -59,7 +76,10 @@ export interface InsightsSummary {
   weekRate: number
   /** Completed / expected over the last 30 days. */
   monthRate: number
-  /** Days in a row (ending today or yesterday) where every habit was done. */
+  /**
+   * Days in a row (ending today or yesterday) where every habit was done —
+   * shown as "full days" rather than a perfect score to be judged against.
+   */
   currentPerfectStreak: number
   bestStreak: number
   totalCompletions: number
@@ -75,19 +95,23 @@ function rate(points: DailyPoint[]): number {
   return done / total
 }
 
-/** Consecutive perfect days ending today or yesterday. */
-function perfectStreak(habits: Habit[], now: Date, historyStart: string | null): number {
+/**
+ * Consecutive "full days" ending today or yesterday. A full day simply means
+ * everything active that day was logged — an observation, not a grade.
+ */
+function allDoneStreak(habits: Habit[], now: Date, historyStart: string | null): number {
+  const prepared = prepareHabits(habits)
   let streak = 0
   for (let i = 0; i < 365; i++) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
     const iso = toISODate(date)
     if (historyStart && iso < historyStart) break
-    const active = habits.filter((h) => createdDate(h.createdAt) <= iso)
+    const active = prepared.filter((h) => h.createdISO <= iso)
     if (active.length === 0) {
       if (i === 0) continue
       break
     }
-    const allDone = active.every((h) => h.history.includes(iso))
+    const allDone = active.every((h) => h.history.has(iso))
     if (allDone) {
       streak += 1
     } else if (i === 0) {
@@ -103,26 +127,27 @@ function perfectStreak(habits: Habit[], now: Date, historyStart: string | null):
 /**
  * Consecutive days (ending today or yesterday) with at least one habit done.
  *
- * Unlike `perfectStreak`, a single completion is enough to keep the run alive,
+ * Unlike `allDoneStreak`, a single completion is enough to keep the run alive,
  * so the number rises the moment the first habit is ticked. If nothing has been
  * done yet today, the run ending yesterday is shown rather than resetting to 0.
  */
 export function dailyStreak(habits: Habit[], now: Date, historyStart: string | null): number {
   if (habits.length === 0) return 0
 
+  const prepared = prepareHabits(habits)
   let streak = 0
   for (let i = 0; i < 365; i++) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
     const iso = toISODate(date)
     if (historyStart && iso < historyStart) break
 
-    const active = habits.filter((h) => createdDate(h.createdAt) <= iso)
+    const active = prepared.filter((h) => h.createdISO <= iso)
     if (active.length === 0) {
       if (i === 0) continue
       break
     }
 
-    if (active.some((h) => h.history.includes(iso))) {
+    if (active.some((h) => h.history.has(iso))) {
       streak += 1
     } else if (i === 0) {
       // Nothing done today yet — show the run ending yesterday instead.
@@ -166,7 +191,7 @@ export function insightsSummary(
   return {
     weekRate: rate(points.slice(-7)),
     monthRate: rate(points),
-    currentPerfectStreak: perfectStreak(live, now, historyStart),
+    currentPerfectStreak: allDoneStreak(live, now, historyStart),
     bestStreak: collectiveBest,
     totalCompletions,
     topHabit,
@@ -174,12 +199,14 @@ export function insightsSummary(
   }
 }
 
-/** A friendly one-line summary of the user's consistency. */
+/** A calm, observational one-line summary of the user's consistency. */
 export function insightHeadline(summary: InsightsSummary): string {
-  if (summary.monthRate >= 0.85) return 'You are on a roll.'
-  if (summary.monthRate >= 0.6) return 'Steady progress.'
-  if (summary.monthRate > 0) return 'Every day counts.'
-  return 'A fresh start.'
+  if (summary.monthRate === 0) {
+    return summary.totalCompletions > 0 ? 'A quiet month so far.' : 'Not enough data yet.'
+  }
+  if (summary.monthRate >= 0.85) return 'Many full days lately.'
+  if (summary.monthRate >= 0.6) return 'A steady rhythm lately.'
+  return 'A little progress at a time.'
 }
 
 export interface WeeklyReview {
@@ -203,6 +230,7 @@ export function weeklyReview(
   const { start, end } = weekRange(now, weekStart)
   const todayIdx = daysSince(start, now)
   const days = Math.min(7, Math.max(0, todayIdx) + 1)
+  const prepared = prepareHabits(habits)
 
   let activeDays = 0
   let completions = 0
@@ -213,9 +241,7 @@ export function weeklyReview(
     const iso = toISODate(date)
     if (iso < start || iso > end) continue
     if (historyStart && iso < historyStart) continue
-    const done = habits.filter(
-      (h) => createdDate(h.createdAt) <= iso && h.history.includes(iso),
-    ).length
+    const done = prepared.filter((h) => h.createdISO <= iso && h.history.has(iso)).length
     if (done > 0) {
       activeDays += 1
       if (!bestDay || done > bestDay.done) bestDay = { iso, done }
@@ -253,11 +279,12 @@ export function habitCompletion(
   days: number,
 ): Array<{ iso: string; done: boolean }> {
   const created = createdDate(habit.createdAt)
+  const history = new Set(habit.history)
   const out: Array<{ iso: string; done: boolean }> = []
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
     const iso = toISODate(date)
-    out.push({ iso, done: created <= iso && habit.history.includes(iso) })
+    out.push({ iso, done: created <= iso && history.has(iso) })
   }
   return out
 }

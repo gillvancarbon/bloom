@@ -76,121 +76,157 @@ function sortHabits(habits: Habit[]): Habit[] {
   })
 }
 
+/**
+ * Serialise store operations. Every read-modify-write (including id allocation)
+ * runs after the previous one finishes, so two overlapping mutations can't read
+ * the same array and clobber each other, and `nextId` can't hand out the same id
+ * twice. Reads are queued too, so `list` never observes a half-applied write.
+ */
+let queue: Promise<unknown> = Promise.resolve()
+
+function mutate<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(fn, fn)
+  // Keep the chain alive even when an operation rejects.
+  queue = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
 export const localStore = {
   async list(): Promise<Habit[]> {
-    return sortHabits(await readAll())
+    return mutate(async () => sortHabits(await readAll()))
   },
 
   /** Replace the whole habit list, keeping ids and history (used by import). */
   async replaceAll(habits: Habit[]): Promise<void> {
-    const normalized = habits.map((habit) => normalizeHabit(habit))
-    await writeAll(normalized)
-    // Only finite numeric ids can seed the sequence; a malformed id must never
-    // turn the counter into NaN.
-    const maxId = normalized.reduce(
-      (max, habit) => (Number.isFinite(habit.id) ? Math.max(max, habit.id) : max),
-      0,
-    )
-    await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
+    return mutate(async () => {
+      const normalized = habits.map((habit) => normalizeHabit(habit))
+      await writeAll(normalized)
+      // Only finite numeric ids can seed the sequence; a malformed id must never
+      // turn the counter into NaN.
+      const maxId = normalized.reduce(
+        (max, habit) => (Number.isFinite(habit.id) ? Math.max(max, habit.id) : max),
+        0,
+      )
+      await Preferences.set({ key: SEQ_KEY, value: String(maxId) })
+    })
   },
 
   async create(input: HabitInput): Promise<Habit> {
-    const habits = await readAll()
-    const minOrder = habits.length ? Math.min(...habits.map((h) => h.order)) : 0
-    const habit: Habit = normalizeHabit({
-      id: await nextId(),
-      name: input.name.trim(),
-      streakCount: 0,
-      lastCompletedDate: null,
-      createdAt: new Date().toISOString(),
-      colorIndex: input.colorIndex,
-      deadline: input.deadline || DEFAULT_DEADLINE,
-      history: [],
-      schedule: input.schedule,
-      target: input.target,
-      category: input.category,
-      timeOfDay: input.timeOfDay,
-      reminderOffset: input.reminderOffset ?? null,
-      order: minOrder - 1,
+    return mutate(async () => {
+      const habits = await readAll()
+      const minOrder = habits.length ? Math.min(...habits.map((h) => h.order)) : 0
+      const habit: Habit = normalizeHabit({
+        id: await nextId(),
+        name: input.name.trim(),
+        streakCount: 0,
+        lastCompletedDate: null,
+        createdAt: new Date().toISOString(),
+        colorIndex: input.colorIndex,
+        deadline: input.deadline || DEFAULT_DEADLINE,
+        history: [],
+        schedule: input.schedule,
+        target: input.target,
+        category: input.category,
+        timeOfDay: input.timeOfDay,
+        reminderOffset: input.reminderOffset ?? null,
+        order: minOrder - 1,
+      })
+      await writeAll([habit, ...habits])
+      return habit
     })
-    await writeAll([habit, ...habits])
-    return habit
   },
 
   async update(id: number, input: HabitInput): Promise<Habit> {
-    const habits = await readAll()
-    const index = habits.findIndex((h) => h.id === id)
-    if (index === -1) throw new Error('Habit not found')
-    const updated: Habit = normalizeHabit({
-      ...habits[index],
-      name: input.name.trim(),
-      colorIndex: input.colorIndex,
-      deadline: input.deadline || DEFAULT_DEADLINE,
-      schedule: input.schedule ?? habits[index].schedule,
-      target: input.target ?? habits[index].target,
-      category: input.category ?? habits[index].category,
-      timeOfDay: input.timeOfDay ?? habits[index].timeOfDay,
-      // `!== undefined` so an explicit "no reminder" (null) is honoured.
-      reminderOffset:
-        input.reminderOffset !== undefined ? input.reminderOffset : habits[index].reminderOffset,
+    return mutate(async () => {
+      const habits = await readAll()
+      const index = habits.findIndex((h) => h.id === id)
+      if (index === -1) throw new Error('Habit not found')
+      const updated: Habit = normalizeHabit({
+        ...habits[index],
+        name: input.name.trim(),
+        colorIndex: input.colorIndex,
+        deadline: input.deadline || DEFAULT_DEADLINE,
+        schedule: input.schedule ?? habits[index].schedule,
+        target: input.target ?? habits[index].target,
+        category: input.category ?? habits[index].category,
+        timeOfDay: input.timeOfDay ?? habits[index].timeOfDay,
+        // `!== undefined` so an explicit "no reminder" (null) is honoured.
+        reminderOffset:
+          input.reminderOffset !== undefined ? input.reminderOffset : habits[index].reminderOffset,
+      })
+      habits[index] = updated
+      await writeAll(habits)
+      return updated
     })
-    habits[index] = updated
-    await writeAll(habits)
-    return updated
   },
 
   async remove(id: number): Promise<void> {
-    const habits = await readAll()
-    await writeAll(habits.filter((h) => h.id !== id))
+    return mutate(async () => {
+      const habits = await readAll()
+      await writeAll(habits.filter((h) => h.id !== id))
+    })
   },
 
   async archive(id: number, archived: boolean): Promise<Habit> {
-    const habits = await readAll()
-    const index = habits.findIndex((h) => h.id === id)
-    if (index === -1) throw new Error('Habit not found')
-    habits[index] = { ...habits[index], archived }
-    await writeAll(habits)
-    return habits[index]
+    return mutate(async () => {
+      const habits = await readAll()
+      const index = habits.findIndex((h) => h.id === id)
+      if (index === -1) throw new Error('Habit not found')
+      habits[index] = { ...habits[index], archived }
+      await writeAll(habits)
+      return habits[index]
+    })
   },
 
   async reorder(ids: number[]): Promise<Habit[]> {
-    const habits = await readAll()
-    const position = new Map(ids.map((id, i) => [id, i]))
-    const next = habits.map((h) => ({
-      ...h,
-      order: position.has(h.id) ? (position.get(h.id) as number) : h.order,
-    }))
-    await writeAll(next)
-    return sortHabits(next)
+    return mutate(async () => {
+      const habits = await readAll()
+      const position = new Map(ids.map((id, i) => [id, i]))
+      const next = habits.map((h) => ({
+        ...h,
+        order: position.has(h.id) ? (position.get(h.id) as number) : h.order,
+      }))
+      await writeAll(next)
+      return sortHabits(next)
+    })
   },
 
   async toggle(id: number): Promise<Habit> {
-    const habits = await readAll()
-    const index = habits.findIndex((h) => h.id === id)
-    if (index === -1) throw new Error('Habit not found')
-    const updated = toggle(habits[index])
-    habits[index] = updated
-    await writeAll(habits)
-    return updated
+    return mutate(async () => {
+      const habits = await readAll()
+      const index = habits.findIndex((h) => h.id === id)
+      if (index === -1) throw new Error('Habit not found')
+      const updated = toggle(habits[index])
+      habits[index] = updated
+      await writeAll(habits)
+      return updated
+    })
   },
 
   /** Protect one missed day with a freeze, keeping the streak alive. */
   async freeze(id: number, date: string): Promise<Habit> {
-    const habits = await readAll()
-    const index = habits.findIndex((h) => h.id === id)
-    if (index === -1) throw new Error('Habit not found')
-    const frozen = [...new Set([...habits[index].frozen, date])].sort()
-    habits[index] = { ...habits[index], frozen }
-    await writeAll(habits)
-    return habits[index]
+    return mutate(async () => {
+      const habits = await readAll()
+      const index = habits.findIndex((h) => h.id === id)
+      if (index === -1) throw new Error('Habit not found')
+      const frozen = [...new Set([...habits[index].frozen, date])].sort()
+      habits[index] = { ...habits[index], frozen }
+      await writeAll(habits)
+      return habits[index]
+    })
   },
 
   /** The day consistency tracking began — stamped the first time it's asked for. */
   async historyStart(): Promise<string> {
-    const { value } = await Preferences.get({ key: HISTORY_START_KEY })
-    if (value) return value
-    const today = todayISO()
-    await Preferences.set({ key: HISTORY_START_KEY, value: today })
-    return today
+    return mutate(async () => {
+      const { value } = await Preferences.get({ key: HISTORY_START_KEY })
+      if (value) return value
+      const today = todayISO()
+      await Preferences.set({ key: HISTORY_START_KEY, value: today })
+      return today
+    })
   },
 }

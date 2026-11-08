@@ -1,14 +1,5 @@
 import { motion } from 'framer-motion'
-import {
-  ArrowDown,
-  ArrowUp,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  ListChecks,
-  MoveRight,
-  Repeat,
-} from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, ListChecks, MoveRight, Repeat } from 'lucide-react'
 import type { Todo } from '../types'
 import {
   categoryMeta,
@@ -18,6 +9,7 @@ import {
   subtaskProgress,
 } from '../lib/todo'
 import { toISODate } from '../lib/streak'
+import { ReorderButtons } from './ReorderButtons'
 import { RowActions } from './RowActions'
 
 interface TodoCardProps {
@@ -46,6 +38,8 @@ interface TodoCardProps {
   onMoveDown?: () => void
   canMoveUp?: boolean
   canMoveDown?: boolean
+  /** Briefly pulse the card after it is completed (opt-in celebrations). */
+  pulsing?: boolean
 }
 
 export function TodoCard({
@@ -69,6 +63,7 @@ export function TodoCard({
   onMoveDown,
   canMoveUp = true,
   canMoveDown = true,
+  pulsing = false,
 }: TodoCardProps) {
   const category = categoryMeta(todo.category)
   const CategoryIcon = category.icon
@@ -91,9 +86,15 @@ export function TodoCard({
     <motion.article
       layout
       initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={
+        pulsing ? { opacity: 1, y: 0, scale: [1, 1.015, 1] } : { opacity: 1, y: 0, scale: 1 }
+      }
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      transition={
+        pulsing
+          ? { duration: 0.6, ease: [0.4, 0, 0.2, 1], times: [0, 0.35, 1] }
+          : { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
+      }
       className={`group relative overflow-hidden rounded-calm border border-line
                   bg-raised px-4 py-3.5 shadow-calm sm:px-5
                   transition-all duration-calm ease-calm
@@ -260,32 +261,15 @@ export function TodoCard({
 
         {!selectable &&
           (onMoveUp || onMoveDown ? (
-            <div className="flex shrink-0 flex-col gap-1" aria-label={`Reorder ${todo.title}`}>
-              {onMoveUp && (
-                <button
-                  type="button"
-                  onClick={onMoveUp}
-                  disabled={!canMoveUp}
-                  aria-label={`Move ${todo.title} up`}
-                  className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted
-                             hover:text-ink disabled:opacity-40"
-                >
-                  <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              )}
-              {onMoveDown && (
-                <button
-                  type="button"
-                  onClick={onMoveDown}
-                  disabled={!canMoveDown}
-                  aria-label={`Move ${todo.title} down`}
-                  className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted
-                             hover:text-ink disabled:opacity-40"
-                >
-                  <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              )}
-            </div>
+            <ReorderButtons
+              label={todo.title}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              canMoveUp={canMoveUp}
+              canMoveDown={canMoveDown}
+              role="group"
+              className="flex shrink-0 flex-col gap-1"
+            />
           ) : (
             <RowActions
               id={todo.id}

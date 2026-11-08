@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Archive, ArchiveRestore, Leaf, Pencil, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 
 interface RowActionsProps {
   id: number
@@ -26,7 +26,7 @@ const openWidth = (hasArchive: boolean) => (hasArchive ? 148 : 96)
 const viewportWidth = (open: boolean, hasArchive: boolean) =>
   (open ? openWidth(hasArchive) : BUTTON) + PAD * 2
 
-/** The leaf → edit + archive + delete interaction shared by cards. */
+/** The overflow menu → edit + archive + delete interaction shared by cards. */
 export function RowActions({
   id,
   label,
@@ -49,11 +49,12 @@ export function RowActions({
       <AnimatePresence initial={false}>
         {!open ? (
           <motion.button
-            key="leaf"
+            key="more"
             type="button"
             onClick={onToggle}
             aria-label={`Show actions for ${label}`}
             aria-expanded={false}
+            title="More"
             style={{ right: PAD }}
             className="silicone absolute flex h-11 w-11 items-center justify-center rounded-full"
             initial={{ opacity: 0 }}
@@ -67,8 +68,8 @@ export function RowActions({
               animate={{ rotate: 0, scale: 1 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             >
-              <Leaf
-                className="h-[24px] w-[24px] text-sage-500 dark:text-sage-300"
+              <MoreHorizontal
+                className="h-[24px] w-[24px] text-muted"
                 strokeWidth={2}
                 aria-hidden
               />

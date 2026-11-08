@@ -29,7 +29,7 @@ const SLIDES: Slide[] = [
   {
     Icon: Flame,
     title: 'Build gentle streaks',
-    body: 'Check a habit off each day to grow its flame. Miss a day and a one-day grace keeps it alive, so a single slip won’t undo your progress.',
+    body: 'Check a habit off each day to build momentum. Miss a day and a one-day grace keeps it going, so a single slip won’t undo your progress.',
   },
   {
     Icon: Layers,
@@ -146,6 +146,9 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
 
             {isLast ? (
               <div className="flex flex-col gap-2">
+                <p className="mb-1 text-center text-xs leading-relaxed text-muted">
+                  Start with one or two. You can always add more.
+                </p>
                 <button
                   type="button"
                   onClick={() => onFinish(true)}

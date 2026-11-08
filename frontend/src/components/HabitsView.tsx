@@ -8,12 +8,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import { AnimatePresence, motion, Reorder, useDragControls } from 'framer-motion'
-import { Archive, CalendarClock, Check, ChevronDown, Flame, Plus, Sparkles } from 'lucide-react'
+import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'framer-motion'
+import { Archive, CalendarClock, Check, ChevronDown, Flame, Plus, Sparkles, X } from 'lucide-react'
 import { AppHeader } from './AppHeader'
 import { HabitCard } from './HabitCard'
 import { HabitForm } from './HabitForm'
-import { HabitQuickAddBar } from './HabitQuickAddBar'
 import { DeleteConfirm } from './DeleteConfirm'
 import { CalendarView } from './CalendarView'
 import { InsightsView } from './InsightsView'
@@ -39,6 +38,7 @@ import {
 import { orderHabits } from '../lib/orderHabits'
 import { isAtRisk } from '../lib/freezes'
 import { playCompletionSound } from '../lib/sound'
+import { celebrate, tap } from '../lib/feedback'
 import { clearPendingDelete, schedulePendingDelete } from '../data/pendingDeletes'
 import type { DayPeriod, Habit, HabitInput, HabitSort } from '../types'
 
@@ -64,6 +64,12 @@ const SORT_OPTIONS: Array<{ value: HabitSort; label: string }> = [
   { value: 'deadline', label: 'By deadline' },
   { value: 'name', label: 'A–Z' },
 ]
+
+/** Streak lengths that earn a slightly stronger celebration. */
+const MILESTONE_STREAKS = [7, 30, 100]
+
+/** How long the "following the clock" notice stays before fading away. */
+const CLOCK_NOTICE_MS = 6000
 
 /** One reorderable habit row. Press and hold a card, then drag to reposition. */
 function HabitRow({
@@ -113,7 +119,7 @@ function HabitRow({
 
   function handlePointerDown(event: ReactPointerEvent) {
     if (!reorderable) return
-    // Interactive controls keep their own gestures (taps, the leaf menu).
+    // Interactive controls keep their own gestures (taps, the overflow menu).
     if ((event.target as HTMLElement).closest('button, a, input, select, textarea')) return
     clearHold()
     startPoint.current = { x: event.clientX, y: event.clientY }
@@ -194,7 +200,14 @@ export function HabitsView({
   const [freezeOpen, setFreezeOpen] = useState(false)
   const [hidden, setHidden] = useState<Set<number>>(new Set())
   const [liveMessage, setLiveMessage] = useState('')
+  /** One-shot card pulse per habit, keyed by id (opt-in celebrations only). */
+  const [pulses, setPulses] = useState<
+    Record<number, { kind: 'habit' | 'milestone'; seq: number }>
+  >({})
+  /** The period a follow-the-clock step moved away from, for a gentle Undo. */
+  const [clockNotice, setClockNotice] = useState<{ from: DayPeriod; to: DayPeriod } | null>(null)
   const now = useNow()
+  const reducedMotion = useReducedMotion()
   const undo = useUndoQueue()
   const { commitNow } = undo
   // One list for the whole day, optionally filtered to a single part of it.
@@ -335,6 +348,13 @@ export function HabitsView({
     requestAnimationFrame(() => document.getElementById(`period-filter-${next}`)?.focus())
   }
 
+  /** Undo a follow-the-clock step: return to the period we were viewing. */
+  function undoClockAdvance() {
+    if (!clockNotice) return
+    setFilter(clockNotice.from)
+    setClockNotice(null)
+  }
+
   // When "follow the clock" is on, step the filter as the day moves. Anytime is
   // left alone entirely, and the all-day view is never yanked away.
   useEffect(() => {
@@ -354,8 +374,20 @@ export function HabitsView({
     const target = clockAdvance(filter, current, lastClockPeriod.current, justEnabled)
     lastClockPeriod.current = current
     if (!target) return
+    // The view moved on its own, so offer a way back instead of changing it
+    // silently. With the notice off, advance quietly.
+    if (settings.followClockNotice) {
+      setClockNotice({ from: filter, to: target })
+    }
     setFilter(target)
-  }, [now, settings.followClock, filter])
+  }, [now, settings.followClock, settings.followClockNotice, filter])
+
+  // Auto-dismiss the follow-the-clock notice after a few calm seconds.
+  useEffect(() => {
+    if (!clockNotice) return
+    const timer = setTimeout(() => setClockNotice(null), CLOCK_NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [clockNotice])
 
   const doneToday = todayHabits.filter((habit) => isCompleteForPeriod(habit, now, weekStart)).length
   const streak = dailyStreak(activeHabits, now, historyStart)
@@ -382,7 +414,25 @@ export function HabitsView({
     if (completing) {
       // A satisfying ding only when marking done, never when un-checking.
       void playCompletionSound(settings)
-      announce(`${habit.name} done. ${updated.streakCount}-day streak.`)
+      // Quiet, opt-in feedback: a light tap and, when enabled, a soft
+      // celebration with a one-shot card pulse. All of it no-ops unless the
+      // user turned it on, and motion is respected.
+      const feedback = { haptics: settings.haptics, celebrations: settings.celebrations }
+      tap(feedback)
+      if (settings.celebrations && !reducedMotion) {
+        const kind = MILESTONE_STREAKS.includes(updated.streakCount) ? 'milestone' : 'habit'
+        celebrate(feedback, kind)
+        setPulses((prev) => ({
+          ...prev,
+          [habit.id]: { kind, seq: (prev[habit.id]?.seq ?? 0) + 1 },
+        }))
+      }
+      // Keep the count out of the announcement when it isn't on screen.
+      announce(
+        settings.streakDisplay === 'flame'
+          ? `${habit.name} done. ${updated.streakCount}-day streak.`
+          : `${habit.name} done.`,
+      )
       // Let the completion be taken back, exactly as the To-do list does.
       undo.push({
         message: `“${habit.name}” completed`,
@@ -535,11 +585,6 @@ export function HabitsView({
         />
       </motion.section>
 
-      {/* Quick add — a sentence becomes a habit */}
-      {!loading && !error && (
-        <HabitQuickAddBar now={now} onCreate={handleCreate} guidance={settings.quickAddGuidance} />
-      )}
-
       {/* Add habit */}
       <div className="mb-5 flex items-center justify-between gap-2">
         <h2 className="font-display text-base font-semibold text-ink sm:text-lg">Your habits</h2>
@@ -558,18 +603,20 @@ export function HabitsView({
               </span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setTemplatesOpen(true)}
-            aria-label="Browse templates"
-            title="Browse templates"
-            className="silicone-quiet inline-flex h-9 w-9 items-center justify-center rounded-full
-                       text-muted hover:text-ink sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2
-                       sm:text-sm sm:font-medium"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-            <span className="hidden sm:inline">Templates</span>
-          </button>
+          {activeHabits.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTemplatesOpen(true)}
+              aria-label="Browse templates"
+              title="Browse templates"
+              className="silicone-quiet inline-flex h-9 w-9 items-center justify-center rounded-full
+                         text-muted hover:text-ink sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2
+                         sm:text-sm sm:font-medium"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Templates</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openCreate(filter === 'all' ? periodFromTime(new Date()) : filter)}
@@ -580,6 +627,42 @@ export function HabitsView({
           </button>
         </div>
       </div>
+
+      {/* A view that advanced with the clock offers a calm way back. */}
+      <AnimatePresence>
+        {clockNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            role="status"
+            className="mb-3 flex items-center justify-between gap-3 rounded-calm-sm border border-line bg-raised px-3 py-2 text-xs text-muted"
+          >
+            <span className="min-w-0 flex-1">
+              Following the clock. Showing {PERIOD_LABELS[clockNotice.to]}.
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={undoClockAdvance}
+                className="silicone rounded-full px-3 py-1 text-xs font-semibold text-sage-600 dark:text-sage-300"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={() => setClockNotice(null)}
+                aria-label="Dismiss"
+                title="Dismiss"
+                className="silicone flex h-8 w-8 items-center justify-center rounded-full text-muted"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Period filter — the whole day is shown by default; chips narrow it */}
       {!loading && !error && activeHabits.length > 0 && hasToday && (
@@ -673,8 +756,7 @@ export function HabitsView({
         todayHabits.length > 0 &&
         activeHabits.every((habit) => habit.history.length === 0) && (
           <p className="mb-3 rounded-calm-sm border border-dashed border-line bg-raised/60 px-3 py-2 text-xs text-muted">
-            Tap the circle when you’ve done it. Miss a day and a gentle grace keeps your flame
-            alive.
+            Tap the circle when you’ve done it. Miss a day and a gentle grace keeps it going.
           </p>
         )}
 
@@ -713,6 +795,7 @@ export function HabitsView({
           <p className="mt-1 max-w-xs text-sm text-muted">
             Add your first habit and begin building a gentle daily rhythm.
           </p>
+          <p className="mt-1 max-w-xs text-xs text-muted">One habit is enough to begin.</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
@@ -813,6 +896,7 @@ export function HabitsView({
                       }
                       canMoveUp={reorderable && visible[0]?.id !== habit.id}
                       canMoveDown={reorderable && visible[visible.length - 1]?.id !== habit.id}
+                      pulse={pulses[habit.id] ?? null}
                     />
                   </HabitRow>
                 ))}
@@ -845,7 +929,7 @@ export function HabitsView({
           {showNotToday && (
             <>
               <p className="mt-3 text-xs text-muted">
-                Not on today’s schedule. Tap the leaf to edit, or the circle to complete early.
+                Not on today’s schedule. Tap the menu to edit, or the circle to complete early.
               </p>
               <ul className="mt-3 space-y-3">
                 {orderedNotToday.map((habit) => (
@@ -868,6 +952,7 @@ export function HabitsView({
                       onArchive={handleArchive}
                       onDelete={requestDelete}
                       onChangePeriod={handleMovePeriod}
+                      pulse={pulses[habit.id] ?? null}
                     />
                   </li>
                 ))}
@@ -917,6 +1002,7 @@ export function HabitsView({
                     }}
                     onArchive={handleArchive}
                     onDelete={requestDelete}
+                    pulse={pulses[habit.id] ?? null}
                   />
                 </li>
               ))}

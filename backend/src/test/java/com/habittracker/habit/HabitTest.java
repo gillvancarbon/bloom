@@ -222,6 +222,62 @@ class HabitTest {
         assertEquals(6, habit.getStreakCount());
     }
 
+    @Test
+    void decrementDoesNothingWhenTodayWasNotCompleted() {
+        LocalDate today = LocalDate.now();
+        Habit habit = new Habit();
+        habit.setHistory(List.of(today.minusDays(2)));
+        habit.setLastCompletedDate(today.minusDays(2));
+        habit.setStreakCount(5);
+
+        habit.decrementStreak();
+
+        assertEquals(5, habit.getStreakCount());
+        assertEquals(today.minusDays(2), habit.getLastCompletedDate());
+    }
+
+    @Test
+    void weeklyMissedWeeksMatchesTheFrontendGraceExample() {
+        // Weekly 3×/week, last completion Fri 2026-05-29, now Wed 2026-06-10:
+        // only the full week of Jun 1–7 is short, because the week of the last
+        // completion (May 25–31) gets the one-week grace.
+        Habit habit = new Habit();
+        habit.setSchedule(Map.<String, Object>of("type", "weekly", "perWeek", 3));
+        habit.setHistory(List.of(LocalDate.of(2026, 5, 29)));
+        habit.setLastCompletedDate(LocalDate.of(2026, 5, 29));
+
+        assertEquals(1, habit.countMissedScheduledOccurrences(
+                LocalDate.of(2026, 5, 29), LocalDate.of(2026, 6, 10)));
+    }
+
+    @Test
+    void frozenDaysDoNotCountTowardAWeeklyTarget() {
+        // Weekly 2×/week with a completion on Fri 2026-05-01. The next full week
+        // (May 4–10) is judged, since the week of the last completion keeps its
+        // one-week grace.
+        Habit frozenOnly = new Habit();
+        frozenOnly.setSchedule(Map.<String, Object>of("type", "weekly", "perWeek", 2));
+        frozenOnly.setHistory(List.of(LocalDate.of(2026, 5, 1)));
+        frozenOnly.setFrozen(List.of(LocalDate.of(2026, 5, 5), LocalDate.of(2026, 5, 6)));
+        frozenOnly.setLastCompletedDate(LocalDate.of(2026, 5, 1));
+
+        // Frozen days keep the streak alive but do not satisfy the weekly
+        // target, matching the frontend's completionsThisWeek (completed days
+        // only), so the short week reads as missed.
+        assertEquals(1, frozenOnly.countMissedScheduledOccurrences(
+                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 13)));
+
+        // Real completions in that same week still count toward the target.
+        Habit completed = new Habit();
+        completed.setSchedule(Map.<String, Object>of("type", "weekly", "perWeek", 2));
+        completed.setHistory(List.of(LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 5), LocalDate.of(2026, 5, 7)));
+        completed.setLastCompletedDate(LocalDate.of(2026, 5, 1));
+
+        assertEquals(0, completed.countMissedScheduledOccurrences(
+                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 13)));
+    }
+
     private Habit completedHabit(LocalDate previous, LocalDate today) {
         Habit habit = new Habit();
         habit.setHistory(List.of(previous, today));

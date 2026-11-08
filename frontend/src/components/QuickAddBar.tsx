@@ -161,10 +161,19 @@ export function QuickAddBar({ now, onAdd, guidance = true }: QuickAddBarProps) {
       setError('Add a title for your task.')
       return
     }
+    const title = parsed.title.trim()
+    if (!title) {
+      setError('Add a title for your task.')
+      return
+    }
+    if (title.length > 120) {
+      setError('Keep the title under 120 characters.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      await onAdd({ ...parsed, note: null, subtasks: [] })
+      await onAdd({ ...parsed, title, note: null, subtasks: [] })
       setText('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add that task.')

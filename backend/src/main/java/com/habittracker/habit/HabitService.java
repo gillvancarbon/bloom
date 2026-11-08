@@ -3,7 +3,11 @@ package com.habittracker.habit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -25,6 +29,16 @@ public class HabitService {
     }
 
     public Habit createHabit(Habit habit) {
+        // A create always inserts a new row: clearing the identity stops a
+        // supplied id from making Spring Data merge onto an existing habit, and
+        // the fields below are server-owned, so they reset to new-habit defaults.
+        habit.setId(null);
+        habit.setStreakCount(0);
+        habit.setLastCompletedDate(null);
+        habit.setHistory(null);
+        habit.setFrozen(null);
+        habit.setArchived(false);
+        habit.setCreatedAt(null);
         // Keep the existing "newest first" feel: a new habit sorts above the rest.
         Integer min = habitRepository.findMinSortOrder();
         habit.setSortOrder(min == null ? 0 : min - 1);
@@ -46,13 +60,35 @@ public class HabitService {
 
     /** Persist a new manual order from the given id sequence. */
     public List<Habit> reorder(List<Long> ids) {
-        if (ids != null) {
-            for (int i = 0; i < ids.size(); i++) {
-                Habit habit = getHabitById(ids.get(i));
-                habit.setSortOrder(i);
-                habitRepository.save(habit);
+        if (ids == null || ids.isEmpty()) {
+            // Nothing to reorder — leave every habit exactly where it was.
+            return getAllHabits();
+        }
+        for (Long id : ids) {
+            if (id == null) {
+                throw new IllegalArgumentException("Reorder ids must not be null");
             }
         }
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("Reorder ids must be unique");
+        }
+
+        // Load the whole set in one query, then write the new order back in one
+        // batch instead of a find/save round-trip per habit.
+        Map<Long, Habit> byId = new HashMap<>();
+        for (Habit habit : habitRepository.findAllById(ids)) {
+            byId.put(habit.getId(), habit);
+        }
+        List<Habit> reordered = new ArrayList<>(ids.size());
+        for (int i = 0; i < ids.size(); i++) {
+            Habit habit = byId.get(ids.get(i));
+            if (habit == null) {
+                throw new HabitNotFoundException("Habit not found with id: " + ids.get(i));
+            }
+            habit.setSortOrder(i);
+            reordered.add(habit);
+        }
+        habitRepository.saveAll(reordered);
         return getAllHabits();
     }
 

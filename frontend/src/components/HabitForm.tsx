@@ -310,17 +310,32 @@ export function HabitForm({
             </p>
           </div>
 
-          {!showMore ? (
+          <div className="mt-4">
             <button
               type="button"
-              onClick={() => setShowMore(true)}
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 hover:text-ink dark:text-sage-300"
+              onClick={() => setShowMore((v) => !v)}
+              aria-expanded={showMore}
+              aria-controls="habit-more-options"
+              aria-describedby="habit-more-options-help"
+              className="silicone flex min-h-[44px] w-full items-center gap-2.5 rounded-calm-sm px-3 py-2 text-left"
             >
-              <ChevronDown className="h-4 w-4" aria-hidden />
-              More options
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-muted transition-transform duration-calm ease-calm ${
+                  showMore ? 'rotate-180' : ''
+                }`}
+                aria-hidden
+              />
+              <span className="text-sm font-medium text-ink">
+                {showMore ? 'Hide options' : 'More options'}
+              </span>
             </button>
-          ) : (
-            <>
+            <p id="habit-more-options-help" className="mt-1.5 text-xs text-muted">
+              Reminders, category, colour and deadline.
+            </p>
+          </div>
+
+          {showMore && (
+            <div id="habit-more-options">
               <div className="mt-4">
                 <span className="mb-2 block text-sm font-medium text-ink">Colour</span>
                 <div className="flex gap-2">
@@ -445,7 +460,7 @@ export function HabitForm({
                           )}, ${offsetPhrase(reminderOffset)} before the deadline.`}
                 </p>
               </div>
-            </>
+            </div>
           )}
 
           {error && (

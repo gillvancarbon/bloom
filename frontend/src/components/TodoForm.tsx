@@ -157,23 +157,32 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                        focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
           />
 
-          <button
-            type="button"
-            onClick={() => setShowMore((v) => !v)}
-            aria-expanded={showMore}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 hover:text-ink dark:text-sage-300"
-          >
-            <ChevronDown
-              className={`h-4 w-4 transition-transform duration-calm ease-calm ${
-                showMore ? 'rotate-180' : ''
-              }`}
-              aria-hidden
-            />
-            {showMore ? 'Hide options' : 'More options'}
-          </button>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowMore((v) => !v)}
+              aria-expanded={showMore}
+              aria-controls="todo-more-options todo-more-options-note"
+              aria-describedby="todo-more-options-help"
+              className="silicone flex min-h-[44px] w-full items-center gap-2.5 rounded-calm-sm px-3 py-2 text-left"
+            >
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-muted transition-transform duration-calm ease-calm ${
+                  showMore ? 'rotate-180' : ''
+                }`}
+                aria-hidden
+              />
+              <span className="text-sm font-medium text-ink">
+                {showMore ? 'Hide options' : 'More options'}
+              </span>
+            </button>
+            <p id="todo-more-options-help" className="mt-1.5 text-xs text-muted">
+              Type, priority, repeat, note and steps.
+            </p>
+          </div>
 
           {showMore && (
-            <>
+            <div id="todo-more-options">
               <div className="mt-4">
                 <span className="mb-2 block text-sm font-medium text-ink">Type</span>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -274,7 +283,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                   </>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           <div className="mt-4">
@@ -375,7 +384,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
           )}
 
           {showMore && (
-            <>
+            <div id="todo-more-options-note">
               <div className="mt-4">
                 <label htmlFor="todo-note" className="mb-2 block text-sm font-medium text-ink">
                   Note <span className="font-normal text-muted">(optional)</span>
@@ -442,7 +451,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                   Add a step
                 </button>
               </div>
-            </>
+            </div>
           )}
 
           {error && (

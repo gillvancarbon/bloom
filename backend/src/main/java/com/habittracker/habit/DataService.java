@@ -5,7 +5,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -111,7 +110,8 @@ public class DataService {
         todo.setDueTime(imported.getDueTime());
         todo.setImportance(imported.getImportance());
         todo.setRecurrence(imported.getRecurrence());
-        todo.setSubtasks(imported.getSubtasks() == null ? new ArrayList<>() : imported.getSubtasks());
+        // Normalise the checklist exactly like a newly created task does.
+        todo.setSubtasks(TodoService.cleanSubtasks(imported.getSubtasks()));
         todo.setDone(Boolean.TRUE.equals(imported.getDone()));
         todo.setCompletedAt(toLocalDateTime(imported.getCompletedAt()));
         todo.setArchived(Boolean.TRUE.equals(imported.getArchived()));

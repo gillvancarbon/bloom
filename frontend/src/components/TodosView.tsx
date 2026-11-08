@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Archive, Check, ChevronDown, ListChecks, Plus, Search, Sparkles, X } from 'lucide-react'
 import { AppHeader } from './AppHeader'
 import { TodoCard } from './TodoCard'
@@ -25,6 +25,7 @@ import {
 } from '../lib/todo'
 import { QuickAddBar } from './QuickAddBar'
 import { playCompletionSound } from '../lib/sound'
+import { celebrate, tap } from '../lib/feedback'
 import { clearPendingDelete, schedulePendingDelete } from '../data/pendingDeletes'
 import type { Subtask, Todo, TodoInput, TodoSort } from '../types'
 
@@ -57,6 +58,21 @@ const EMPTY_VIEW_TEXT: Record<TodoView, { title: string; hint: string }> = {
   all: { title: 'All clear for now', hint: 'Enjoy the breathing room.' },
 }
 
+/** Build a TodoInput from an existing task, overriding only what changed. */
+function todoInputFrom(todo: Todo, patch: Partial<TodoInput> = {}): TodoInput {
+  return {
+    title: todo.title,
+    note: todo.note,
+    category: todo.category,
+    dueDate: todo.dueDate,
+    dueTime: todo.dueTime,
+    importance: todo.importance,
+    recurrence: todo.recurrence,
+    subtasks: todo.subtasks,
+    ...patch,
+  }
+}
+
 interface TodosViewProps {
   onOpenSettings: () => void
   onOpenCalendar: () => void
@@ -68,6 +84,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
     useTodos()
   const { settings, update: updateSettings } = useSettings()
   const now = useNow()
+  const reducedMotion = useReducedMotion()
   const [dialog, setDialog] = useState<Dialog>({ type: 'none' })
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [showArchived, setShowArchived] = useState(false)
@@ -79,6 +96,8 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [liveMessage, setLiveMessage] = useState('')
+  const [pulsing, setPulsing] = useState<Set<number>>(new Set())
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const undo = useUndoQueue()
   const { commitNow } = undo
 
@@ -118,10 +137,30 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
     }
   }
 
+  /**
+   * Opt-in feedback for a completion the user just made. One tap and one
+   * celebration cover the whole action, however many tasks it touched, and the
+   * card pulse stays off when motion is reduced or celebrations are disabled.
+   */
+  function signalCompletion(ids: number[]) {
+    const opts = { haptics: settings.haptics, celebrations: settings.celebrations }
+    tap(opts)
+    if (!settings.celebrations) return
+    celebrate(opts, 'task')
+    if (reducedMotion || ids.length === 0) return
+    setPulsing(new Set(ids))
+    if (pulseTimer.current) clearTimeout(pulseTimer.current)
+    pulseTimer.current = setTimeout(() => {
+      setPulsing(new Set())
+      pulseTimer.current = null
+    }, 600)
+  }
+
   async function bulkComplete() {
     const ids = [...selected].filter((id) => !todos.find((t) => t.id === id)?.done)
     if (!ids.length) return endSelection()
     await runBulk(ids, (id) => toggle(id))
+    signalCompletion(ids)
     announce(ids.length === 1 ? '1 task completed.' : `${ids.length} tasks completed.`)
     endSelection()
   }
@@ -145,6 +184,14 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
   // Commit any pending delete when leaving the screen, so a tab switch can't
   // resurrect an optimistically-hidden task.
   useEffect(() => () => commitNow(), [commitNow])
+
+  // Stop a pulse timer if the screen unmounts mid-animation.
+  useEffect(
+    () => () => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current)
+    },
+    [],
+  )
 
   // Collapse the open card when tapping anywhere outside its action area.
   useEffect(() => {
@@ -199,25 +246,18 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
     const completing = !todo.done
     const repeats = completing && todo.recurrence !== 'none'
     const updated = await toggle(todo.id)
-    // A satisfying ding only when marking done, never when un-checking.
-    if (completing) void playCompletionSound(settings)
+    // Quiet, opt-in feedback only when marking done, never when un-checking.
+    if (completing) {
+      void playCompletionSound(settings)
+      signalCompletion([todo.id])
+    }
     // Tell the reader where a repeating task went, and let them take it back.
     if (repeats) {
       const next = dueState(updated.dueDate, updated.dueTime, now)
       undo.push({
         message: `“${todo.title}” repeats — moved to ${next.text || 'its next turn'}`,
         undoLabel: 'Undo',
-        onUndo: () =>
-          update(todo.id, {
-            title: todo.title,
-            note: todo.note,
-            category: todo.category,
-            dueDate: todo.dueDate,
-            dueTime: todo.dueTime,
-            importance: todo.importance,
-            recurrence: todo.recurrence,
-            subtasks: todo.subtasks,
-          }).then(() => undefined),
+        onUndo: () => update(todo.id, todoInputFrom(todo)).then(() => undefined),
         onCommit: () => undefined,
       })
     } else {
@@ -228,30 +268,11 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
   /** Move an overdue task to a new date without opening the editor. */
   async function handleReschedule(todo: Todo, dueDate: string) {
     setSelectedId(null)
-    await update(todo.id, {
-      title: todo.title,
-      note: todo.note,
-      category: todo.category,
-      dueDate,
-      dueTime: todo.dueTime,
-      importance: todo.importance,
-      recurrence: todo.recurrence,
-      subtasks: todo.subtasks,
-    })
+    await update(todo.id, todoInputFrom(todo, { dueDate }))
     undo.push({
       message: `“${todo.title}” moved to today`,
       undoLabel: 'Undo',
-      onUndo: () =>
-        update(todo.id, {
-          title: todo.title,
-          note: todo.note,
-          category: todo.category,
-          dueDate: todo.dueDate,
-          dueTime: todo.dueTime,
-          importance: todo.importance,
-          recurrence: todo.recurrence,
-          subtasks: todo.subtasks,
-        }).then(() => undefined),
+      onUndo: () => update(todo.id, todoInputFrom(todo)).then(() => undefined),
       onCommit: () => undefined,
     })
   }
@@ -260,16 +281,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
     const subtasks: Subtask[] = todo.subtasks.map((subtask) =>
       subtask.id === subtaskId ? { ...subtask, done: !subtask.done } : subtask,
     )
-    await update(todo.id, {
-      title: todo.title,
-      note: todo.note,
-      category: todo.category,
-      dueDate: todo.dueDate,
-      dueTime: todo.dueTime,
-      importance: todo.importance,
-      recurrence: todo.recurrence,
-      subtasks,
-    })
+    await update(todo.id, todoInputFrom(todo, { subtasks }))
   }
 
   async function handleArchive(todo: Todo) {
@@ -615,6 +627,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
                       onMoveDown={manualOrder ? () => move(todo.id, 1) : undefined}
                       canMoveUp={index > 0}
                       canMoveDown={index < orderedOpen.length - 1}
+                      pulsing={pulsing.has(todo.id)}
                     />
                   </li>
                 ))}
@@ -672,6 +685,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
                           setSelectedId(null)
                           setDialog({ type: 'delete', todo: t })
                         }}
+                        pulsing={pulsing.has(todo.id)}
                       />
                     </li>
                   ))}

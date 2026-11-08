@@ -40,10 +40,15 @@ public class TodoService {
     }
 
     public Todo createTodo(Todo todo) {
+        // A create always inserts a new row: clearing the identity stops a
+        // supplied id from making Spring Data merge onto an existing task, and
+        // completion/archive state is server-owned, so it resets on create.
+        todo.setId(null);
         normalize(todo);
         todo.setDone(false);
         todo.setCompletedAt(null);
         todo.setArchived(false);
+        todo.setCreatedAt(null);
         return todoRepository.save(todo);
     }
 
@@ -152,8 +157,11 @@ public class TodoService {
         return (recurrence == null || recurrence.isBlank()) ? "none" : recurrence;
     }
 
-    /** Trim step titles, drop blanks, and make sure every step has an id. */
-    private List<Subtask> cleanSubtasks(List<Subtask> subtasks) {
+    /**
+     * Trim step titles, drop blanks, and make sure every step has an id. Shared
+     * with import so an imported checklist is normalised exactly like a new one.
+     */
+    static List<Subtask> cleanSubtasks(List<Subtask> subtasks) {
         if (subtasks == null) {
             return new ArrayList<>();
         }

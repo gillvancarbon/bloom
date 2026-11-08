@@ -1,5 +1,6 @@
 package com.habittracker.habit;
 
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,7 +35,7 @@ public class DataController {
     /** Replace the whole dataset with an exported snapshot. 400 if the payload is malformed. */
     @PostMapping("/import")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void importData(@RequestBody ImportRequest request) {
+    public void importData(@Valid @RequestBody ImportRequest request) {
         dataService.importData(request);
     }
 }

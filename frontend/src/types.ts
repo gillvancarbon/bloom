@@ -123,6 +123,14 @@ export type TimeFormat = '12' | '24'
 export type WeekStart = 0 | 1
 
 /**
+ * How streaks are presented in the UI:
+ *   flame    — the classic animated flame
+ *   momentum — a calmer momentum figure
+ *   hidden   — no streak indicator at all
+ */
+export type StreakDisplay = 'flame' | 'momentum' | 'hidden'
+
+/**
  * A reminder/notification sound.
  *  - `bloom_chime` → the bundled gentle chime (default)
  *  - `default`     → the phone's default notification sound
@@ -159,6 +167,24 @@ export interface Settings {
   quickAddGuidance: boolean
   /** Follow the clock: switch the visible period as the day advances. */
   followClock: boolean
+  /** How streaks are presented: flame, momentum, or hidden. */
+  streakDisplay: StreakDisplay
+  /** Play celebratory feedback when a habit is completed. */
+  celebrations: boolean
+  /** Haptic feedback on key interactions. */
+  haptics: boolean
+  /** Silence notifications during a daily window. */
+  quietHoursEnabled: boolean
+  /** Start of the quiet-hours window as "HH:mm". */
+  quietHoursStart: string
+  /** End of the quiet-hours window as "HH:mm". */
+  quietHoursEnd: string
+  /** Bundle reminders into a single daily digest instead of individual nudges. */
+  reminderDigest: boolean
+  /** Send the single follow-up nudge for tasks that are still open after their due time. */
+  overdueNudges: boolean
+  /** Show the notice that following the clock changes the visible period. */
+  followClockNotice: boolean
   /** Streak freezes left to spend; refilled to a weekly allowance. */
   freezeTokens: number
   /** The week (its start date) the freezes were last refilled for. */

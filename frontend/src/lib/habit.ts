@@ -11,6 +11,16 @@ type RawHabit = Partial<Habit> & {
   reminderTime?: string | null
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** True for a real calendar date in "YYYY-MM-DD" form. */
+function isISODate(value: unknown): value is string {
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
+
 /**
  * Resolve a reminder offset, converting the legacy fixed "HH:mm" time into an
  * offset relative to the habit's deadline. An explicit `reminderOffset` (even
@@ -33,24 +43,24 @@ function reminderOffsetFrom(raw: RawHabit): number | null {
  */
 export function normalizeHabit(raw: RawHabit): Habit {
   const history = Array.isArray(raw.history)
-    ? [...new Set(raw.history.filter((d) => typeof d === 'string'))].sort()
+    ? [...new Set(raw.history.filter(isISODate))].sort()
     : []
-  const last = raw.lastCompletedDate ?? null
+  const last = isISODate(raw.lastCompletedDate) ? raw.lastCompletedDate : null
   if (last && !history.includes(last)) {
     history.push(last)
     history.sort()
   }
-  const frozen = Array.isArray(raw.frozen)
-    ? [...new Set(raw.frozen.filter((d) => typeof d === 'string'))].sort()
-    : []
+  const frozen = Array.isArray(raw.frozen) ? [...new Set(raw.frozen.filter(isISODate))].sort() : []
 
   return {
     id: raw.id,
     name: raw.name ?? '',
-    streakCount: raw.streakCount ?? 0,
+    streakCount: Number.isFinite(raw.streakCount) ? (raw.streakCount as number) : 0,
     lastCompletedDate: last,
     createdAt: raw.createdAt ?? new Date().toISOString(),
-    colorIndex: raw.colorIndex ?? 0,
+    colorIndex: Number.isFinite(raw.colorIndex)
+      ? Math.max(0, Math.trunc(raw.colorIndex as number))
+      : 0,
     deadline: raw.deadline || '23:59',
     history,
     frozen,

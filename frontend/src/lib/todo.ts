@@ -134,13 +134,36 @@ export function recurrenceLabel(id: string | null | undefined): string | null {
   return meta && meta.id !== 'none' ? meta.label : null
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const CLOCK_TIME = /^\d{2}:\d{2}$/
+
+/** True for a real calendar date in "YYYY-MM-DD" form. */
+export function isISODate(value: unknown): value is string {
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
+
+/** True for a valid "HH:mm" clock time (00–23 hours, 00–59 minutes). */
+export function isClockTime(value: unknown): value is string {
+  if (typeof value !== 'string' || !CLOCK_TIME.test(value)) return false
+  const [hours, minutes] = value.split(':').map(Number)
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59
+}
+
 /** Fills in missing fields on tasks saved by earlier versions. */
 export function normalizeTodo(todo: Todo): Todo {
+  // Drop malformed dates/times from import or corrupt storage so they can't
+  // throw later in dueState/formatDueTime. A time is kept even without a date:
+  // quick-add and the form can set a time on its own.
   return {
     ...todo,
     category: todo.category || DEFAULT_CATEGORY.id,
     importance: (todo.importance as TodoImportance) || DEFAULT_IMPORTANCE.id,
     recurrence: (todo.recurrence as TodoRecurrence) || DEFAULT_RECURRENCE,
+    dueDate: isISODate(todo.dueDate) ? todo.dueDate : null,
+    dueTime: isClockTime(todo.dueTime) ? todo.dueTime : null,
     subtasks: normalizeSubtasks(todo.subtasks),
     archived: todo.archived ?? false,
   }
@@ -243,17 +266,21 @@ export interface DueState {
 }
 
 function parseDueAt(dueDate: string, dueTime: string | null): Date {
-  const [year, month, day] = dueDate.split('-').map(Number)
-  if (dueTime) {
+  const dateParts = dueDate.split('-').map(Number)
+  const [year, month, day] = dateParts
+  // An unparseable date degrades to an invalid Date rather than throwing.
+  if (dateParts.length !== 3 || !dateParts.every(Number.isFinite)) return new Date(NaN)
+  if (isClockTime(dueTime)) {
     const [hours, minutes] = dueTime.split(':').map(Number)
     return new Date(year, month - 1, day, hours, minutes)
   }
-  // With no time, the task only becomes overdue once the day has passed.
+  // With no (valid) time, the task only becomes overdue once the day has passed.
   return new Date(year, month - 1, day, 23, 59, 59, 999)
 }
 
-function formatDueTime(dueTime: string | null): string {
-  if (!dueTime) return ''
+/** Format "HH:mm" for display; an unparseable value degrades to an empty string. */
+export function formatDueTime(dueTime: string | null): string {
+  if (!isClockTime(dueTime)) return ''
   const [hours, minutes] = dueTime.split(':').map(Number)
   return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString(undefined, {
     hour: 'numeric',

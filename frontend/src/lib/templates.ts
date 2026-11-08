@@ -3,6 +3,28 @@ import type { HabitInput } from '../types'
 export interface HabitTemplate extends HabitInput {
   /** Short blurb shown under the template name. */
   blurb: string
+  /**
+   * A gentle starting point for a first habit. Purely presentational: callers
+   * may group and label these first, but every template remains selectable.
+   */
+  suggested?: boolean
+}
+
+/** How many templates we suggest starting with. */
+export const MAX_SUGGESTED_TEMPLATES = 3
+
+/**
+ * Split templates into the small suggested group and everything else, keeping
+ * the original order within each group. Never hides a template.
+ */
+export function groupTemplates(templates: HabitTemplate[] = HABIT_TEMPLATES): {
+  suggested: HabitTemplate[]
+  others: HabitTemplate[]
+} {
+  return {
+    suggested: templates.filter((template) => template.suggested),
+    others: templates.filter((template) => !template.suggested),
+  }
 }
 
 /**
@@ -18,6 +40,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
     deadline: '21:00',
     category: 'Health',
     schedule: { type: 'daily' },
+    suggested: true,
   },
   {
     name: 'Read for 10 minutes',
@@ -27,6 +50,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
     deadline: '23:00',
     category: 'Mind',
     schedule: { type: 'daily' },
+    suggested: true,
   },
   {
     name: 'Practise a skill',
@@ -45,6 +69,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
     deadline: '22:00',
     category: 'Home',
     schedule: { type: 'daily' },
+    suggested: true,
   },
   {
     name: 'Go to bed on time',

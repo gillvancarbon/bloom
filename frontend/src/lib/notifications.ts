@@ -5,7 +5,8 @@ import {
   type LocalNotificationSchema,
 } from '@capacitor/local-notifications'
 import type { Habit, Settings, Todo, WeekStart } from '../types'
-import { reminderBody, reminderClock } from './reminder'
+import { inQuietHours } from './notificationPlan'
+import { quietWindow, reminderBody, reminderClock } from './reminder'
 import { completionsThisWeek, normalizeSchedule } from './schedule'
 import {
   OVERDUE_NUDGE_DELAY_MS,
@@ -50,6 +51,17 @@ import { showToast } from './toast'
 /** Habit notification ids live in [HABIT_BASE_ID, HABIT_MAX_ID]. */
 const HABIT_BASE_ID = 1000
 const HABIT_MAX_ID = 9_000_000
+/**
+ * Digest notifications share a band inside the habit range so the same
+ * range-based cancel clears them. A digest id is
+ *
+ *   DIGEST_BASE_ID + dayOffset * 24 + hourOfDay
+ *
+ * which spans 0-191 for the 8-day window, so ids are deterministic, stay unique
+ * within a window, and sit far above any real habit id (ordinary habit ids are
+ * `HABIT_BASE_ID + habitId * 100 + dayOffset`).
+ */
+const DIGEST_BASE_ID = 8_500_000
 /** Task notification ids live in a separate range so the two never collide. */
 const TODO_BASE_ID = 10_000_000
 const TODO_MAX_ID = 20_000_000
@@ -67,6 +79,48 @@ const webTaskTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
 export function notificationsNative(): boolean {
   return Capacitor.isNativePlatform()
+}
+
+/**
+ * Foreground state used to hold back a nudge while the user already has Bloom
+ * open. An app-state signal (the Capacitor App plugin) is honoured only on
+ * native, and only when something has wired it in; otherwise we fall back to
+ * the document's visibility, which covers the web build.
+ */
+export function isForeground(signals: {
+  native: boolean
+  visibilityState?: string
+  appState?: { isActive: boolean } | null
+}): boolean {
+  if (signals.native && signals.appState) return signals.appState.isActive
+  return signals.visibilityState === 'visible'
+}
+
+/** Live foreground check for the JS delivery paths Bloom owns. */
+function foregrounded(): boolean {
+  return isForeground({
+    native: notificationsNative(),
+    visibilityState: typeof document === 'undefined' ? undefined : document.visibilityState,
+    appState: null,
+  })
+}
+
+/** True when a reminder at `at` must be held back by the quiet-hours setting. */
+export function isQuietAt(at: Date, settings: Settings): boolean {
+  return inQuietHours(at, quietWindow(settings))
+}
+
+/**
+ * Whether the single overdue follow-up may be queued. It is skipped entirely
+ * when the user has switched overdue nudges off, and held back when its
+ * near-immediate delivery moment falls inside quiet hours.
+ */
+export function overdueNudgeAllowed(
+  at: Date,
+  settings: Pick<Settings, 'overdueNudges'>,
+  quiet: { start: string; end: string } | null,
+): boolean {
+  return settings.overdueNudges && !inQuietHours(at, quiet)
 }
 
 /**
@@ -138,7 +192,7 @@ function parseHM(hhmm: string): { hour: number; minute: number } {
  * Stable id for one occurrence. Habit ids are spaced 100 apart so a 7-day
  * window can't overlap the next habit's ids.
  */
-function occurrenceId(habitId: number, dayOffset: number): number {
+export function habitOccurrenceId(habitId: number, dayOffset: number): number {
   return HABIT_BASE_ID + habitId * 100 + dayOffset
 }
 
@@ -244,64 +298,267 @@ export function reminderOccurrences(
   return occurrences
 }
 
+/** A habit reminder moment paired with the habit it belongs to. */
+export interface HabitOccurrence {
+  habit: Habit
+  at: Date
+  dayOffset: number
+}
+
 /**
- * One-shot reminders for the next few days. Returns [] when reminders are off
- * or the habit has no reminder. Weekday habits only get their selected days;
- * all other schedules (daily, flexible weekly) nudge every day.
+ * One planned habit nudge: either an ordinary single-habit reminder or a digest
+ * covering every habit that shares a local clock hour.
  */
-function reminderJobs(
-  habit: Habit,
+export interface PlannedHabitNudge {
+  id: number
+  at: Date
+  /** One habit for an ordinary reminder, several for a digest. */
+  habits: Habit[]
+}
+
+/** The title for a combined digest of `count` habit reminders. */
+function digestTitle(count: number): string {
+  return `${count} habits due soon`
+}
+
+/** A calm body naming up to three of the habits a digest covers. */
+function digestBody(names: string[]): string {
+  const shown = names.slice(0, 3)
+  const extra = names.length - shown.length
+  const list =
+    extra > 0
+      ? `${shown.join(', ')} and ${extra} more`
+      : shown.length === 1
+        ? shown[0]
+        : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`
+  return `${list} ${names.length === 1 ? 'is' : 'are'} coming up.`
+}
+
+/**
+ * Collapse habit occurrences that land in the same local clock hour into one
+ * digest, borrowing the earliest moment of the hour. A lone occurrence in an
+ * hour passes through untouched as an ordinary reminder. Task reminders are
+ * never digested.
+ *
+ * Digest ids come from {@link DIGEST_BASE_ID} (see above), so the range-based
+ * cancel still clears them and they cannot collide with per-habit ids.
+ */
+export function digestHabitOccurrences(occurrences: HabitOccurrence[]): PlannedHabitNudge[] {
+  const groups = new Map<string, HabitOccurrence[]>()
+  for (const occurrence of occurrences) {
+    const { at } = occurrence
+    const key = `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}-${at.getHours()}`
+    const group = groups.get(key)
+    if (group) group.push(occurrence)
+    else groups.set(key, [occurrence])
+  }
+
+  const nudges: PlannedHabitNudge[] = []
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      const [only] = group
+      nudges.push({
+        id: habitOccurrenceId(only.habit.id, only.dayOffset),
+        at: only.at,
+        habits: [only.habit],
+      })
+      continue
+    }
+    const earliest = group.reduce((a, b) => (a.at.getTime() <= b.at.getTime() ? a : b))
+    nudges.push({
+      id: DIGEST_BASE_ID + earliest.dayOffset * 24 + earliest.at.getHours(),
+      at: earliest.at,
+      habits: group.map((occurrence) => occurrence.habit),
+    })
+  }
+  return nudges
+}
+
+/** Whole local days from `fromDate` to `toDate`, used for a digest id slot. */
+function localDayOffset(fromDate: Date, toDate: Date): number {
+  const from = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate()).getTime()
+  const to = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate()).getTime()
+  return Math.round((to - from) / 86_400_000)
+}
+
+/**
+ * Every habit reminder for the rolling window, as notification jobs. Returns []
+ * when reminders are off. Weekday habits only get their selected days; all other
+ * schedules (daily, flexible weekly) nudge every day. Moments inside quiet hours
+ * are dropped, and — with digest on — reminders sharing a clock hour collapse
+ * into one.
+ */
+function habitNotifications(
+  habits: Habit[],
   settings: Settings,
   channelId: string,
   now: Date,
 ): LocalNotificationSchema[] {
-  if (!settings.notificationsEnabled || habit.archived) return []
+  if (!settings.notificationsEnabled) return []
 
-  const base = {
-    title: 'Bloom',
-    body: reminderBody(habit),
-    channelId,
-    smallIcon: 'ic_stat_bloom',
-    // Android 8+ takes the sound from the channel (set by the BloomSound
-    // plugin, so it can be any ringtone). Pre-8 devices use this bundled chime.
-    ...(settings.reminderSound === 'bloom_chime' ? { sound: 'bloom_chime' } : {}),
-    autoCancel: true,
-    actionTypeId: ACTION_TYPE_ID,
-    extra: { bloomKind: 'habit', bloomId: habit.id },
+  const occurrences: HabitOccurrence[] = []
+  for (const habit of habits) {
+    if (habit.archived) continue
+    for (const occurrence of reminderOccurrences(habit, now)) {
+      if (isQuietAt(occurrence.at, settings)) continue
+      occurrences.push({ habit, at: occurrence.at, dayOffset: occurrence.dayOffset })
+    }
   }
 
-  return reminderOccurrences(habit, now).map(({ at, dayOffset }) => ({
-    ...base,
-    id: occurrenceId(habit.id, dayOffset),
-    // RTC_WAKEUP + allow-while-idle, so Doze can't swallow the nudge.
-    schedule: { at, allowWhileIdle: true },
-  }))
-}
+  const nudges: PlannedHabitNudge[] = settings.reminderDigest
+    ? digestHabitOccurrences(occurrences)
+    : occurrences.map((occurrence) => ({
+        id: habitOccurrenceId(occurrence.habit.id, occurrence.dayOffset),
+        at: occurrence.at,
+        habits: [occurrence.habit],
+      }))
 
-function scheduleWeb(habit: Habit, time: string): void {
-  const at = nextOccurrence(time)
-  const delay = Math.min(at.getTime() - Date.now(), 2_147_000_000)
-  const timer = setTimeout(() => {
-    const today = new Date().getDay()
-    const scheduledToday = habit.schedule.type !== 'weekdays' || habit.schedule.days.includes(today)
-    if (
-      scheduledToday &&
-      typeof Notification !== 'undefined' &&
-      Notification.permission === 'granted'
-    ) {
-      try {
-        new Notification('Bloom', {
-          body: reminderBody(habit),
-          tag: `bloom-habit-${habit.id}`,
-        })
-      } catch {
-        /* ignore */
+  // Android 8+ takes the sound from the channel (set by the BloomSound plugin,
+  // so it can be any ringtone). Pre-8 devices use this bundled chime.
+  const sound = settings.reminderSound === 'bloom_chime' ? { sound: 'bloom_chime' } : {}
+
+  return nudges.map((nudge) => {
+    const base = {
+      id: nudge.id,
+      channelId,
+      smallIcon: 'ic_stat_bloom',
+      ...sound,
+      autoCancel: true,
+      // RTC_WAKEUP + allow-while-idle, so Doze can't swallow the nudge.
+      schedule: { at: nudge.at, allowWhileIdle: true },
+    }
+
+    if (nudge.habits.length === 1) {
+      const [habit] = nudge.habits
+      return {
+        ...base,
+        title: 'Bloom',
+        body: reminderBody(habit),
+        actionTypeId: ACTION_TYPE_ID,
+        extra: { bloomKind: 'habit', bloomId: habit.id },
       }
     }
-    // Re-arm for the next day.
-    scheduleWeb(habit, time)
+
+    // A digest covers several habits, so there is no single record to Complete
+    // or Snooze — it carries no action set.
+    return {
+      ...base,
+      title: digestTitle(nudge.habits.length),
+      body: digestBody(nudge.habits.map((habit) => habit.name)),
+      extra: { bloomKind: 'habit' },
+    }
+  })
+}
+
+/** A group of web-fallback habits sharing one timer. */
+interface WebHabitGroup {
+  /** Timer key: the habit id for a lone reminder, else a digest slot. */
+  id: number
+  at: Date
+  habits: Habit[]
+  /** The clock time ("HH:mm") to re-arm the group at. */
+  clock: string
+}
+
+/** The next occurrence of `clock` that isn't inside quiet hours, or null. */
+function nextAudibleOccurrence(clock: string, settings: Settings, now: Date): Date | null {
+  const at = nextOccurrence(clock, now)
+  if (!isQuietAt(at, settings)) return at
+  const tomorrow = new Date(at)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return isQuietAt(tomorrow, settings) ? null : tomorrow
+}
+
+/** The habits in a group that are actually scheduled on the current weekday. */
+function scheduledOnToday(habits: Habit[], now: Date): Habit[] {
+  const day = now.getDay()
+  return habits.filter(
+    (habit) => habit.schedule.type !== 'weekdays' || habit.schedule.days.includes(day),
+  )
+}
+
+/** Deliver one web group, unless the app is open or permission is gone. */
+function deliverWebGroup(group: WebHabitGroup): void {
+  const due = scheduledOnToday(group.habits, new Date())
+  if (!due.length) return
+  // Don't nudge while the user already has Bloom open.
+  if (foregrounded()) return
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  try {
+    if (due.length === 1) {
+      new Notification('Bloom', {
+        body: reminderBody(due[0]),
+        tag: `bloom-habit-${due[0].id}`,
+      })
+    } else {
+      new Notification(digestTitle(due.length), {
+        body: digestBody(due.map((habit) => habit.name)),
+        tag: `bloom-habit-digest-${group.id}`,
+      })
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Arm a web timer for a group, then re-arm it for the next audible day. */
+function scheduleWebGroup(group: WebHabitGroup, settings: Settings): void {
+  const delay = Math.min(group.at.getTime() - Date.now(), 2_147_000_000)
+  const timer = setTimeout(() => {
+    deliverWebGroup(group)
+    const next = nextAudibleOccurrence(group.clock, settings, group.at)
+    if (next) scheduleWebGroup({ ...group, at: next }, settings)
   }, delay)
-  webTimers.set(habit.id, timer)
+  webTimers.set(group.id, timer)
+}
+
+/** Plan the web fallback timers, digesting by local hour when asked to. */
+function scheduleWebHabits(habits: Habit[], settings: Settings): void {
+  const now = new Date()
+  const entries: { habit: Habit; at: Date; clock: string }[] = []
+  for (const habit of habits) {
+    if (habit.archived) continue
+    const offset = habit.reminderOffset
+    if (offset == null) continue
+    const clock = reminderClock(habit.deadline, offset)
+    const at = nextAudibleOccurrence(clock, settings, now)
+    if (!at) continue
+    entries.push({ habit, at, clock })
+  }
+
+  if (!settings.reminderDigest) {
+    for (const { habit, at, clock } of entries) {
+      scheduleWebGroup({ id: habit.id, at, habits: [habit], clock }, settings)
+    }
+    return
+  }
+
+  const grouped = new Map<string, { at: Date; clock: string; habits: Habit[] }>()
+  for (const { habit, at, clock } of entries) {
+    const key = `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}-${at.getHours()}`
+    const existing = grouped.get(key)
+    if (existing) {
+      existing.habits.push(habit)
+      if (at.getTime() < existing.at.getTime()) {
+        existing.at = at
+        existing.clock = clock
+      }
+    } else {
+      grouped.set(key, { at, clock, habits: [habit] })
+    }
+  }
+
+  for (const group of grouped.values()) {
+    scheduleWebGroup(
+      {
+        id: DIGEST_BASE_ID + localDayOffset(now, group.at) * 24 + group.at.getHours(),
+        at: group.at,
+        habits: group.habits,
+        clock: group.clock,
+      },
+      settings,
+    )
+  }
 }
 
 /**
@@ -314,7 +571,7 @@ export async function syncHabitReminders(habits: Habit[], settings: Settings): P
     if (!settings.notificationsEnabled) return
     const channelId = await getReminderChannelId(settings.reminderSound)
     const now = new Date()
-    const notifications = habits.flatMap((habit) => reminderJobs(habit, settings, channelId, now))
+    const notifications = habitNotifications(habits, settings, channelId, now)
     if (!notifications.length) return
     try {
       await LocalNotifications.schedule({ notifications })
@@ -329,12 +586,7 @@ export async function syncHabitReminders(habits: Habit[], settings: Settings): P
   if (!settings.notificationsEnabled) return
   const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted'
   if (!granted) return
-  for (const habit of habits) {
-    if (habit.archived) continue
-    const offset = habit.reminderOffset
-    if (offset == null) continue
-    scheduleWeb(habit, reminderClock(habit.deadline, offset))
-  }
+  scheduleWebHabits(habits, settings)
 }
 
 /**
@@ -364,6 +616,7 @@ async function syncWebTaskReminders(todos: Todo[], settings: Settings): Promise<
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
 
   const now = new Date()
+  const quiet = quietWindow(settings)
   const alreadyNudged = await nudgeStore.list()
   const overdueKeys: string[] = []
 
@@ -372,8 +625,11 @@ async function syncWebTaskReminders(todos: Todo[], settings: Settings): Promise<
 
     const at = taskReminderAt(todo, now)
     if (at) {
+      // Hold back a reminder that would land inside quiet hours.
+      if (isQuietAt(at, settings)) continue
       const delay = Math.min(at.getTime() - now.getTime(), 2_147_000_000)
       const timer = setTimeout(() => {
+        if (foregrounded()) return
         try {
           new Notification('Bloom', {
             body: taskReminderBody(todo, settings.timeFormat),
@@ -388,6 +644,10 @@ async function syncWebTaskReminders(todos: Todo[], settings: Settings): Promise<
     }
 
     if (!taskOverdue(todo, now)) continue
+    // No follow-up when it is switched off, in quiet hours, or while the app is
+    // already open; an unmarked task can still pop once those clear.
+    if (!overdueNudgeAllowed(now, settings, quiet)) continue
+    if (foregrounded()) continue
     const key = taskOverdueKey(todo)
     if (!key || alreadyNudged.has(key)) continue
     overdueKeys.push(key)
@@ -421,6 +681,7 @@ async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<v
 
   const channelId = await getReminderChannelId(settings.reminderSound)
   const now = new Date()
+  const quiet = quietWindow(settings)
   const notifications: LocalNotificationSchema[] = []
   const overdueKeys: string[] = []
   const alreadyNudged = await nudgeStore.list()
@@ -430,6 +691,8 @@ async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<v
   for (const todo of todos) {
     const at = taskReminderAt(todo, now)
     if (at) {
+      // A due-time reminder landing inside quiet hours is simply not queued.
+      if (isQuietAt(at, settings)) continue
       notifications.push({
         id: TODO_BASE_ID + todo.id,
         title: 'Bloom',
@@ -447,6 +710,9 @@ async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<v
 
     // Already due and still open? Nudge once per due occurrence.
     if (!taskOverdue(todo, now)) continue
+    // Overdue follow-ups can be switched off entirely; leaving them out of
+    // keepOverdue lets the stale sweep below cancel any still queued.
+    if (!settings.overdueNudges) continue
     const key = taskOverdueKey(todo)
     if (!key) continue
     if (alreadyNudged.has(key)) {
@@ -455,6 +721,9 @@ async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<v
       keepOverdue.add(overdueNudgeId(todo.id))
       continue
     }
+    const overdueAt = new Date(now.getTime() + OVERDUE_NUDGE_DELAY_MS)
+    // A follow-up that would land inside quiet hours is held back.
+    if (!overdueNudgeAllowed(overdueAt, settings, quiet)) continue
     overdueKeys.push(key)
     notifications.push({
       id: overdueNudgeId(todo.id),
@@ -466,7 +735,7 @@ async function runTaskReminderSync(todos: Todo[], settings: Settings): Promise<v
       autoCancel: true,
       actionTypeId: ACTION_TYPE_ID,
       extra: { bloomKind: 'todo', bloomId: todo.id },
-      schedule: { at: new Date(now.getTime() + OVERDUE_NUDGE_DELAY_MS), allowWhileIdle: true },
+      schedule: { at: overdueAt, allowWhileIdle: true },
     })
   }
 

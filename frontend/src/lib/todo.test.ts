@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Todo } from '../types'
 import {
   addMonths,
+  dueState,
+  formatDueTime,
   matchesTodo,
   nextOccurrence,
   normalizeTodo,
@@ -36,6 +38,33 @@ describe('normalizeTodo', () => {
     const normalized = normalizeTodo(legacy as Todo)
     expect(normalized.importance).toBe('medium')
     expect(normalized.archived).toBe(false)
+  })
+
+  it('drops malformed due dates and times', () => {
+    const normalized = normalizeTodo({ ...todo({}), dueDate: 'sometime', dueTime: 'abc' })
+    expect(normalized.dueDate).toBeNull()
+    expect(normalized.dueTime).toBeNull()
+  })
+
+  it('keeps a real date but rejects impossible calendar dates and clock times', () => {
+    const valid = normalizeTodo({ ...todo({}), dueDate: '2026-11-05', dueTime: '09:30' })
+    expect(valid.dueDate).toBe('2026-11-05')
+    expect(valid.dueTime).toBe('09:30')
+
+    const impossible = normalizeTodo({ ...todo({}), dueDate: '2026-02-30', dueTime: '25:00' })
+    expect(impossible.dueDate).toBeNull()
+    expect(impossible.dueTime).toBeNull()
+  })
+})
+
+describe('dueState robustness', () => {
+  const now = new Date(2026, 10, 5, 10, 0, 0)
+
+  it('does not throw on a malformed due date or time', () => {
+    expect(() => dueState('sometime', 'abc', now)).not.toThrow()
+    expect(() => dueState('2026-11-05', 'abc', now)).not.toThrow()
+    expect(() => formatDueTime('abc')).not.toThrow()
+    expect(formatDueTime('abc')).toBe('')
   })
 })
 

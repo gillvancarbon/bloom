@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -85,6 +86,35 @@ class DataControllerTest {
         assertThat(todo.getTitle()).isEqualTo("Pay rent");
         assertThat(todo.getDone()).isTrue();
         assertThat(todo.getSubtasks()).hasSize(1);
+    }
+
+    @Test
+    void anInvalidImportBodyReturns400BeforeReachingTheService() throws Exception {
+        mvc.perform(post("/api/data/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"habits":[{"name":"   "}],"todos":[]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors['habits[0].name']").value("Habit name is required"));
+
+        verify(dataService, never()).importData(any(ImportRequest.class));
+    }
+
+    @Test
+    void anOutOfRangeImportFieldReturns400() throws Exception {
+        mvc.perform(post("/api/data/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"habits":[{"name":"Read","streakCount":-5,
+                                 "schedule":{"type":"hourly"}}],"todos":[]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['habits[0].streakCount']").value("streakCount must not be negative"))
+                .andExpect(jsonPath("$.errors['habits[0].schedule.type']").value("Unknown schedule type"));
+
+        verify(dataService, never()).importData(any(ImportRequest.class));
     }
 
     @Test

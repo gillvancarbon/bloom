@@ -59,6 +59,18 @@ export function reminderClock(deadline: string, offset: number): string {
   return toHHMM(minutesOfDay(deadline) - offset)
 }
 
+/**
+ * The quiet-hours window to honour right now, or null when the feature is off.
+ *
+ * Kept as a small pure helper (rather than reading the two settings fields at
+ * every call site) so the "is this moment audible?" rule is decided in one place
+ * and can be unit-tested without the notification plugin.
+ */
+export function quietWindow(settings: Settings): { start: string; end: string } | null {
+  if (!settings.quietHoursEnabled) return null
+  return { start: settings.quietHoursStart, end: settings.quietHoursEnd }
+}
+
 /** The preset closest to an arbitrary offset — used when migrating old data. */
 export function nearestReminderPreset(minutes: number): number {
   const safe = Math.max(0, minutes)

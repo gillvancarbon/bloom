@@ -4,10 +4,19 @@ import { normalizeHabit } from '../lib/habit'
 
 const storage = new Map<string, string>()
 
+/** Yield a few microtasks so an unserialised read-modify-write would interleave. */
+async function gate(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve()
+}
+
 vi.mock('@capacitor/preferences', () => ({
   Preferences: {
-    get: vi.fn(async ({ key }: { key: string }) => ({ value: storage.get(key) ?? null })),
+    get: vi.fn(async ({ key }: { key: string }) => {
+      await gate()
+      return { value: storage.get(key) ?? null }
+    }),
     set: vi.fn(async ({ key, value }: { key: string; value: string }) => {
+      await gate()
       storage.set(key, value)
     }),
     remove: vi.fn(async ({ key }: { key: string }) => {
@@ -127,5 +136,30 @@ describe('localStore.increment schedule awareness', () => {
 
     const updated = await localStore.toggle(5)
     expect(updated.streakCount).toBe(1)
+  })
+})
+
+describe('localStore serialisation', () => {
+  it('applies two overlapping toggles without losing either update', async () => {
+    await localStore.replaceAll([habit({ id: 10 }), habit({ id: 11 })])
+
+    await Promise.all([localStore.toggle(10), localStore.toggle(11)])
+
+    const list = await localStore.list()
+    const today = '2026-06-10'
+    expect(list.map((h) => h.lastCompletedDate)).toEqual([today, today])
+    expect(list.map((h) => h.streakCount)).toEqual([1, 1])
+  })
+
+  it('never allocates the same id twice under overlapping creates', async () => {
+    const [a, b] = await Promise.all([
+      localStore.create({ name: 'A', colorIndex: 0, deadline: '23:59' }),
+      localStore.create({ name: 'B', colorIndex: 1, deadline: '23:59' }),
+    ])
+
+    expect(a.id).not.toBe(b.id)
+    const ids = (await localStore.list()).map((h) => h.id)
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
   })
 })

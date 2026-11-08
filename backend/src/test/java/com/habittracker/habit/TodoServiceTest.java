@@ -98,6 +98,19 @@ class TodoServiceTest {
     }
 
     @Test
+    void createForcesANewRowEvenWhenAnIdIsSupplied() {
+        Todo input = task("Buy milk");
+        input.setId(99L);
+        input.setCreatedAt(LocalDateTime.of(2020, 1, 1, 0, 0));
+        when(repository.save(any(Todo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Todo result = service.createTodo(input);
+
+        assertThat(result.getId()).isNull();
+        assertThat(result.getCreatedAt()).isNull();
+    }
+
+    @Test
     void updateKeepsIdAndClearsTimeWhenTheDateIsRemoved() {
         Todo existing = task("Old");
         existing.setId(4L);

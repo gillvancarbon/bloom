@@ -42,6 +42,53 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ taskReminders: false }).taskReminders).toBe(false)
   })
 
+  it('defaults the newer display and notification preferences', () => {
+    const defaults = normalizeSettings(null)
+    expect(defaults.streakDisplay).toBe('momentum')
+    expect(defaults.celebrations).toBe(false)
+    expect(defaults.haptics).toBe(false)
+    expect(defaults.quietHoursEnabled).toBe(false)
+    expect(defaults.quietHoursStart).toBe('22:00')
+    expect(defaults.quietHoursEnd).toBe('07:00')
+    expect(defaults.reminderDigest).toBe(false)
+    expect(defaults.followClockNotice).toBe(true)
+  })
+
+  it('keeps a known streak display and rejects unknown ones', () => {
+    expect(normalizeSettings({ streakDisplay: 'flame' }).streakDisplay).toBe('flame')
+    expect(normalizeSettings({ streakDisplay: 'hidden' }).streakDisplay).toBe('hidden')
+    expect(normalizeSettings({ streakDisplay: 'sparkle' as never }).streakDisplay).toBe('momentum')
+  })
+
+  it('accepts a real HH:mm quiet-hours window and falls back otherwise', () => {
+    expect(normalizeSettings({ quietHoursStart: '23:30', quietHoursEnd: '06:15' })).toMatchObject({
+      quietHoursStart: '23:30',
+      quietHoursEnd: '06:15',
+    })
+    expect(normalizeSettings({ quietHoursStart: '24:00' }).quietHoursStart).toBe('22:00')
+    expect(normalizeSettings({ quietHoursEnd: '7:00' as never }).quietHoursEnd).toBe('07:00')
+    expect(normalizeSettings({ quietHoursStart: 42 as never }).quietHoursStart).toBe('22:00')
+    expect(normalizeSettings({ quietHoursEnd: '' }).quietHoursEnd).toBe('07:00')
+  })
+
+  it('honours explicit booleans for the newer toggles', () => {
+    expect(
+      normalizeSettings({
+        celebrations: true,
+        haptics: true,
+        quietHoursEnabled: true,
+        reminderDigest: true,
+        followClockNotice: false,
+      }),
+    ).toMatchObject({
+      celebrations: true,
+      haptics: true,
+      quietHoursEnabled: true,
+      reminderDigest: true,
+      followClockNotice: false,
+    })
+  })
+
   it('only counts a real timestamp as accepted terms', () => {
     expect(normalizeSettings(null).termsAcceptedAt).toBeNull()
     expect(normalizeSettings({ termsAcceptedAt: '' }).termsAcceptedAt).toBeNull()

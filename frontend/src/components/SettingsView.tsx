@@ -47,7 +47,7 @@ import {
   Volume2,
   ListChecks,
 } from 'lucide-react'
-import type { CompletionSound, TimeFormat, WeekStart } from '../types'
+import type { CompletionSound, StreakDisplay, TimeFormat, WeekStart } from '../types'
 
 interface SettingsViewProps {
   onClose: () => void
@@ -139,10 +139,12 @@ function Switch({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
+  disabled?: boolean
 }) {
   return (
     <button
@@ -150,10 +152,15 @@ function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 rounded-full border transition-colors duration-calm ease-calm ${
-        checked ? 'border-sage-500 bg-sage-500' : 'border-line bg-mint-200 dark:bg-mint-900/60'
-      }`}
+      className={`relative h-7 w-12 rounded-full border transition-colors duration-calm ease-calm
+                  before:absolute before:-inset-2 before:content-['']
+                  disabled:cursor-not-allowed disabled:opacity-50 ${
+                    checked
+                      ? 'border-sage-500 bg-sage-500'
+                      : 'border-line bg-mint-200 dark:bg-mint-900/60'
+                  }`}
     >
       <motion.span
         layout
@@ -163,6 +170,47 @@ function Switch({
         }`}
       />
     </button>
+  )
+}
+
+/** A three-way choice that keeps the segmented look with a 44px target. */
+function StreakPicker({
+  value,
+  onChange,
+}: {
+  value: StreakDisplay
+  onChange: (next: StreakDisplay) => void
+}) {
+  const options: { value: StreakDisplay; label: string }[] = [
+    { value: 'flame', label: 'Flame' },
+    { value: 'momentum', label: 'Momentum' },
+    { value: 'hidden', label: 'Hidden' },
+  ]
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Streak display"
+      className="flex gap-1 rounded-calm-sm border border-line bg-surface p-1"
+    >
+      {options.map((option) => {
+        const selected = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
+            className={`flex min-h-11 flex-1 items-center justify-center rounded-calm-sm px-3 text-sm font-medium transition-all duration-calm ease-calm ${
+              selected ? 'bg-sage-500 text-white shadow-calm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -346,6 +394,12 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     } else {
       update({ notificationsEnabled: false })
     }
+  }
+
+  /** Persist a quiet-hours boundary only when it is a complete "HH:mm" time. */
+  function setQuietTime(field: 'quietHoursStart' | 'quietHoursEnd', value: string) {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return
+    update(field === 'quietHoursStart' ? { quietHoursStart: value } : { quietHoursEnd: value })
   }
 
   /** Fire a one-off notification so a user can prove reminders reach them. */
@@ -626,6 +680,53 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             onChange={toggleNotifications}
           />
         </Row>
+        <Row label="Quiet hours" hint="Silence notifications during a set window each day.">
+          <Switch
+            label="Quiet hours"
+            checked={settings.quietHoursEnabled}
+            disabled={!settings.notificationsEnabled}
+            onChange={(v) => update({ quietHoursEnabled: v })}
+          />
+        </Row>
+        <div className="rounded-calm-sm border border-line bg-surface p-3">
+          <div className="flex flex-wrap gap-3">
+            <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-xs font-medium text-muted">
+              Quiet hours start
+              <input
+                type="time"
+                value={settings.quietHoursStart}
+                disabled={!settings.notificationsEnabled || !settings.quietHoursEnabled}
+                onChange={(e) => setQuietTime('quietHoursStart', e.target.value)}
+                className="min-h-11 w-full rounded-calm-sm border border-line bg-raised px-3 text-sm text-ink
+                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30
+                           disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
+            <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-xs font-medium text-muted">
+              Quiet hours end
+              <input
+                type="time"
+                value={settings.quietHoursEnd}
+                disabled={!settings.notificationsEnabled || !settings.quietHoursEnabled}
+                onChange={(e) => setQuietTime('quietHoursEnd', e.target.value)}
+                className="min-h-11 w-full rounded-calm-sm border border-line bg-raised px-3 text-sm text-ink
+                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30
+                           disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            Reminders that would land inside this window are skipped.
+          </p>
+        </div>
+        <Row label="Bundle reminders" hint="One combined reminder per hour instead of several.">
+          <Switch
+            label="Bundle reminders"
+            checked={settings.reminderDigest}
+            disabled={!settings.notificationsEnabled}
+            onChange={(v) => update({ reminderDigest: v })}
+          />
+        </Row>
         <Row
           label="Task reminders"
           hint="Nudge me when a to-do is due — and once more if it’s still open after the due date."
@@ -634,6 +735,17 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             label="Task reminders"
             checked={settings.taskReminders}
             onChange={(v) => update({ taskReminders: v })}
+          />
+        </Row>
+        <Row
+          label="Overdue task nudges"
+          hint="One follow-up when a task stays open after its due time."
+        >
+          <Switch
+            label="Overdue task nudges"
+            checked={settings.overdueNudges}
+            disabled={!settings.notificationsEnabled || !settings.taskReminders}
+            onChange={(v) => update({ overdueNudges: v })}
           />
         </Row>
         <Row label="Test reminders" hint="Send one now to check permissions and the chosen sound.">
@@ -788,35 +900,78 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
   function renderHabits() {
     return (
-      <Card>
-        <Row
-          label="Follow the clock"
-          hint="Switch the visible period automatically as morning turns to afternoon and evening."
-        >
-          <Switch
+      <div className="flex flex-col gap-4">
+        <Card>
+          <Row
             label="Follow the clock"
-            checked={settings.followClock}
-            onChange={(v) => update({ followClock: v })}
-          />
-        </Row>
-        <Row label="Hide completed" hint="Keep finished habits out of the day's list.">
-          <Switch
-            label="Hide completed"
-            checked={settings.hideCompleted}
-            onChange={(v) => update({ hideCompleted: v })}
-          />
-        </Row>
-        <Row
-          label="Quick add guidance"
-          hint="Show suggestions, recommendations and examples as you type. Type /help at any time for the full reference."
-        >
-          <Switch
+            hint="Switch the visible period automatically as morning turns to afternoon and evening."
+          >
+            <Switch
+              label="Follow the clock"
+              checked={settings.followClock}
+              onChange={(v) => update({ followClock: v })}
+            />
+          </Row>
+          <Row
+            label="Announce period changes"
+            hint="Show a short notice with Undo when the visible period changes."
+          >
+            <Switch
+              label="Announce period changes"
+              checked={settings.followClockNotice}
+              disabled={!settings.followClock}
+              onChange={(v) => update({ followClockNotice: v })}
+            />
+          </Row>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-medium text-ink">Streak display</p>
+              <p className="mt-0.5 text-xs text-muted">
+                Flame shows the current streak, Momentum counts days done in the last 30, and Hidden
+                shows no streak.
+              </p>
+            </div>
+            <StreakPicker
+              value={settings.streakDisplay}
+              onChange={(v) => update({ streakDisplay: v })}
+            />
+          </div>
+          <Row label="Hide completed" hint="Keep finished habits out of the day's list.">
+            <Switch
+              label="Hide completed"
+              checked={settings.hideCompleted}
+              onChange={(v) => update({ hideCompleted: v })}
+            />
+          </Row>
+          <Row
             label="Quick add guidance"
-            checked={settings.quickAddGuidance}
-            onChange={(v) => update({ quickAddGuidance: v })}
-          />
-        </Row>
-      </Card>
+            hint="Show suggestions, recommendations and examples as you type. Type /help at any time for the full reference."
+          >
+            <Switch
+              label="Quick add guidance"
+              checked={settings.quickAddGuidance}
+              onChange={(v) => update({ quickAddGuidance: v })}
+            />
+          </Row>
+        </Card>
+        <Card>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Feedback</p>
+          <Row label="Celebrations" hint="A gentle pulse when you finish something.">
+            <Switch
+              label="Celebrations"
+              checked={settings.celebrations}
+              onChange={(v) => update({ celebrations: v })}
+            />
+          </Row>
+          <Row label="Haptics" hint="Short vibration on completion. Off by default.">
+            <Switch
+              label="Haptics"
+              checked={settings.haptics}
+              onChange={(v) => update({ haptics: v })}
+            />
+          </Row>
+        </Card>
+      </div>
     )
   }
 

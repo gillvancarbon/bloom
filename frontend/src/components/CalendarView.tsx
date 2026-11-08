@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Portal } from './Portal'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
@@ -70,17 +70,28 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
     [view, weekStart],
   )
 
-  /* How many days this month were fully completed — a gentle pat on the back. */
-  const fullDays = useMemo(
-    () => cells.filter((c) => c && dayStatus(c.iso, habits, historyStart, today) === 'full').length,
-    [cells, habits, historyStart, today],
-  )
+  /* Each day's status is computed once per month render, then reused for the
+     cell colour, the accessible label and the "full days" count. */
+  const { statusByIso, fullDays } = useMemo(() => {
+    const statusByIso: Record<string, DayStatus> = {}
+    let fullDays = 0
+    for (const cell of cells) {
+      if (!cell) continue
+      const status = dayStatus(cell.iso, habits, historyStart, today)
+      statusByIso[cell.iso] = status
+      if (status === 'full') fullDays += 1
+    }
+    return { statusByIso, fullDays }
+  }, [cells, habits, historyStart, today])
 
-  function go(delta: number) {
-    if (delta > 0 && atCurrentMonth) return
-    setDir(delta)
-    setView((v) => new Date(v.getFullYear(), v.getMonth() + delta, 1))
-  }
+  const go = useCallback(
+    (delta: number) => {
+      if (delta > 0 && atCurrentMonth) return
+      setDir(delta)
+      setView((v) => new Date(v.getFullYear(), v.getMonth() + delta, 1))
+    },
+    [atCurrentMonth],
+  )
 
   function goToday() {
     setDir(view < startOfMonth(now) ? 1 : -1)
@@ -95,7 +106,7 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [onClose, go])
 
   return (
     <Portal>
@@ -125,8 +136,8 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
               </h2>
               <p className="mt-1 text-xs text-muted sm:text-sm">
                 {fullDays > 0
-                  ? `${fullDays} day${fullDays === 1 ? '' : 's'} fully done this month.`
-                  : 'Each day fills in as you complete your habits.'}
+                  ? `${fullDays} day${fullDays === 1 ? '' : 's'} with all habits done this month.`
+                  : 'Each day fills in gently as you log your habits.'}
               </p>
             </div>
             <button
@@ -210,9 +221,9 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
               >
                 {cells.map((cell, i) => {
                   if (!cell) return <div key={`blank-${i}`} />
-                  const status = dayStatus(cell.iso, habits, historyStart, today)
+                  const status = statusByIso[cell.iso]
                   const isToday = cell.iso === today
-                  const label = dayDescription(cell.iso, habits, historyStart, today)
+                  const label = dayDescription(cell.iso, habits, historyStart, today, status)
                   return (
                     <div
                       key={cell.iso}

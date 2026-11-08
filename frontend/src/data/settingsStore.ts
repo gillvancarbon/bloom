@@ -1,5 +1,12 @@
 import { Preferences } from '@capacitor/preferences'
-import type { CompletionSound, HabitSort, Settings, SoundChoice, TodoSort } from '../types'
+import type {
+  CompletionSound,
+  HabitSort,
+  Settings,
+  SoundChoice,
+  StreakDisplay,
+  TodoSort,
+} from '../types'
 import { SETTINGS_SCHEMA_VERSION } from '../data/migrations'
 import { minutesOfDay, nearestReminderPreset, snapReminderOffset } from '../lib/reminder'
 import { WEEKLY_FREEZES } from '../lib/freezes'
@@ -26,6 +33,15 @@ export const DEFAULT_SETTINGS: Settings = {
   hideCompleted: false,
   quickAddGuidance: true,
   followClock: false,
+  streakDisplay: 'momentum',
+  celebrations: false,
+  haptics: false,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  reminderDigest: false,
+  overdueNudges: true,
+  followClockNotice: true,
   freezeTokens: WEEKLY_FREEZES,
   lastFreezeWeek: null,
   onboarded: false,
@@ -53,6 +69,21 @@ const TODO_SORTS: TodoSort[] = ['due', 'importance', 'name', 'created', 'manual'
 
 function todoSortFrom(value: unknown): TodoSort {
   return TODO_SORTS.includes(value as TodoSort) ? (value as TodoSort) : 'due'
+}
+
+const STREAK_DISPLAYS: StreakDisplay[] = ['flame', 'momentum', 'hidden']
+
+function streakDisplayFrom(value: unknown): StreakDisplay {
+  return STREAK_DISPLAYS.includes(value as StreakDisplay)
+    ? (value as StreakDisplay)
+    : DEFAULT_SETTINGS.streakDisplay
+}
+
+/** A 24-hour "HH:mm" clock time, e.g. "07:30". Anything else is rejected. */
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
+function hhmmFrom(value: unknown, fallback: string): string {
+  return typeof value === 'string' && HHMM.test(value) ? value : fallback
 }
 
 /**
@@ -89,6 +120,15 @@ export function normalizeSettings(raw: RawSettings | null): Settings {
     hideCompleted: Boolean(merged.hideCompleted),
     quickAddGuidance: merged.quickAddGuidance !== false,
     followClock: Boolean(merged.followClock),
+    streakDisplay: streakDisplayFrom(merged.streakDisplay),
+    celebrations: Boolean(merged.celebrations),
+    haptics: Boolean(merged.haptics),
+    quietHoursEnabled: Boolean(merged.quietHoursEnabled),
+    quietHoursStart: hhmmFrom(merged.quietHoursStart, DEFAULT_SETTINGS.quietHoursStart),
+    quietHoursEnd: hhmmFrom(merged.quietHoursEnd, DEFAULT_SETTINGS.quietHoursEnd),
+    reminderDigest: Boolean(merged.reminderDigest),
+    overdueNudges: merged.overdueNudges !== false,
+    followClockNotice: merged.followClockNotice !== false,
     freezeTokens: Number.isFinite(merged.freezeTokens)
       ? Math.max(0, Math.round(merged.freezeTokens))
       : WEEKLY_FREEZES,

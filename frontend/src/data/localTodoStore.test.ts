@@ -2,10 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storage = new Map<string, string>()
 
+/** Yield a few microtasks so an unserialised read-modify-write would interleave. */
+async function gate(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve()
+}
+
 vi.mock('@capacitor/preferences', () => ({
   Preferences: {
-    get: vi.fn(async ({ key }: { key: string }) => ({ value: storage.get(key) ?? null })),
+    get: vi.fn(async ({ key }: { key: string }) => {
+      await gate()
+      return { value: storage.get(key) ?? null }
+    }),
     set: vi.fn(async ({ key, value }: { key: string; value: string }) => {
+      await gate()
       storage.set(key, value)
     }),
     remove: vi.fn(async ({ key }: { key: string }) => {
@@ -65,5 +74,38 @@ describe('localTodoStore recurrence', () => {
     const updated = await localTodoStore.toggle(created.id)
     expect(updated.done).toBe(true)
     expect(updated.completedAt).toEqual(expect.any(String))
+  })
+})
+
+describe('localTodoStore serialisation', () => {
+  it('keeps both tasks and never duplicates an id under overlapping creates', async () => {
+    const [a, b] = await Promise.all([
+      localTodoStore.create({
+        title: 'A',
+        note: null,
+        category: 'personal',
+        dueDate: null,
+        dueTime: null,
+        importance: 'medium',
+        recurrence: 'none',
+        subtasks: [],
+      }),
+      localTodoStore.create({
+        title: 'B',
+        note: null,
+        category: 'personal',
+        dueDate: null,
+        dueTime: null,
+        importance: 'medium',
+        recurrence: 'none',
+        subtasks: [],
+      }),
+    ])
+
+    expect(a.id).not.toBe(b.id)
+    const list = await localTodoStore.list()
+    expect(list).toHaveLength(2)
+    expect(new Set(list.map((todo) => todo.id)).size).toBe(2)
+    expect(list.map((todo) => todo.title).sort()).toEqual(['A', 'B'])
   })
 })

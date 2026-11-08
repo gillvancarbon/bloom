@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
+import { Stat } from './Stat'
 import { CalendarDays, ChevronDown, ChevronLeft, TrendingUp } from 'lucide-react'
 import type { Habit, WeekStart } from '../types'
 import {
@@ -37,11 +38,15 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
       if (point.total === 0) acc.none += 1
       else if (point.done >= point.total) acc.full += 1
       else if (point.done > 0) acc.partial += 1
-      else acc.missed += 1
+      else acc.quiet += 1
       return acc
     },
-    { full: 0, partial: 0, missed: 0, none: 0 },
+    { full: 0, partial: 0, quiet: 0, none: 0 },
   )
+
+  // When nothing has been logged recently, lead with calm copy instead of a
+  // wall of 0% values. Lifetime totals stay below in the per-habit list.
+  const hasRecentActivity = summary.points.some((point) => point.done > 0)
 
   return (
     <Portal>
@@ -81,39 +86,84 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
             </div>
           </header>
 
-          {/* Headline stats */}
-          <div className="mb-5 grid grid-cols-2 gap-3">
-            <Stat label="This week" value={pct(summary.weekRate)} hint="of habits done" />
-            <Stat label="This month" value={pct(summary.monthRate)} hint="of habits done" />
-            <Stat label="Perfect days" value={summary.currentPerfectStreak} hint="in a row" />
-            <Stat label="Best streak" value={summary.bestStreak} hint="days" />
-          </div>
+          {hasRecentActivity ? (
+            <>
+              {/* Consistency — rates, framed as a rhythm rather than a grade */}
+              <section className="mb-3" aria-labelledby="insights-consistency">
+                <h2
+                  id="insights-consistency"
+                  className="mb-2 font-display text-sm font-semibold text-ink"
+                >
+                  Consistency
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <Stat
+                    label="This week"
+                    value={summary.weekRate > 0 ? pct(summary.weekRate) : '—'}
+                    hint={summary.weekRate > 0 ? 'of habits done' : 'nothing logged yet'}
+                  />
+                  <Stat
+                    label="This month"
+                    value={summary.monthRate > 0 ? pct(summary.monthRate) : '—'}
+                    hint={summary.monthRate > 0 ? 'of habits done' : 'nothing logged yet'}
+                  />
+                </div>
+              </section>
 
-          {/* Weekly review */}
-          <section className="mb-5 rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-            <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-ink">
-              <CalendarDays className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
-              This week
-            </h2>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="font-display text-lg font-semibold text-ink">
-                  {review.activeDays}/{review.days}
-                </p>
-                <p className="text-xs text-muted">active days</p>
-              </div>
-              <div>
-                <p className="font-display text-lg font-semibold text-ink">{review.completions}</p>
-                <p className="text-xs text-muted">completions</p>
-              </div>
-              <div>
-                <p className="font-display text-lg font-semibold text-ink">
-                  {review.bestDay?.done ?? 0}
-                </p>
-                <p className="text-xs text-muted">best day</p>
-              </div>
-            </div>
-          </section>
+              {/* Momentum — gentle streaks, no perfect/failed framing */}
+              <section className="mb-5" aria-labelledby="insights-momentum">
+                <h2
+                  id="insights-momentum"
+                  className="mb-2 font-display text-sm font-semibold text-ink"
+                >
+                  Momentum
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <Stat label="Full days" value={summary.currentPerfectStreak} hint="in a row" />
+                  <Stat label="Best streak" value={summary.bestStreak} hint="days" />
+                </div>
+              </section>
+
+              {/* Weekly review */}
+              <section className="mb-5 rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
+                <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-ink">
+                  <CalendarDays className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
+                  This week
+                </h2>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="font-display text-lg font-semibold text-ink">
+                      {review.activeDays}/{review.days}
+                    </p>
+                    <p className="text-xs text-muted">active days</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-lg font-semibold text-ink">
+                      {review.completions}
+                    </p>
+                    <p className="text-xs text-muted">completions</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-lg font-semibold text-ink">
+                      {review.bestDay?.done ?? 0}
+                    </p>
+                    <p className="text-xs text-muted">best day</p>
+                  </div>
+                </div>
+              </section>
+            </>
+          ) : (
+            <section className="mb-5 rounded-calm border border-line bg-raised p-5 text-center shadow-calm">
+              <p className="font-display text-sm font-semibold text-ink">
+                Your trends will appear here
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {live.length > 0
+                  ? 'Nothing logged in the last 30 days. Consistency and momentum build one small step at a time.'
+                  : 'Add a habit to start seeing your consistency and momentum.'}
+              </p>
+            </section>
+          )}
 
           {/* 30-day trend */}
           <section className="rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
@@ -122,11 +172,12 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
               Last 30 days
             </h2>
             <p className="mb-3 text-xs text-muted">
-              Each bar is how much of that day’s habits you finished.
+              Each bar shows how much of that day was logged.
             </p>
             <p className="sr-only">
-              Last 30 days: {monthCounts.full} day{monthCounts.full === 1 ? '' : 's'} on target,{' '}
-              {monthCounts.partial} partial, {monthCounts.missed} missed
+              Last 30 days: {monthCounts.full} day{monthCounts.full === 1 ? '' : 's'} with
+              everything done, {monthCounts.partial} with some done, {monthCounts.quiet} with
+              nothing logged
               {monthCounts.none > 0 ? `, ${monthCounts.none} with no data` : ''}.
             </p>
             <div className="flex h-24 items-end gap-[3px]" aria-hidden>
@@ -165,6 +216,8 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                 {live.map((habit) => {
                   const best = bestStreak(habit, weekStart)
                   const done = habit.history.length
+                  const recent = habitCompletion(habit, now, 30)
+                  const recentDone = recent.filter((day) => day.done).length
                   const open = openId === habit.id
                   const badges = milestones(habit, weekStart)
                   const reached = badges.filter((badge) => badge.reached).length
@@ -199,7 +252,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                       {open && (
                         <div className="px-1 pb-3 pt-1">
                           <div className="flex gap-[3px]" aria-hidden>
-                            {habitCompletion(habit, now, 30).map((day) => (
+                            {recent.map((day) => (
                               <span
                                 key={day.iso}
                                 title={day.iso}
@@ -209,6 +262,10 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                               />
                             ))}
                           </div>
+                          <p className="sr-only">
+                            {habit.name}, last 30 days: {recentDone} day
+                            {recentDone === 1 ? '' : 's'} logged.
+                          </p>
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {badges.map((badge) => (
                               <span
@@ -239,15 +296,5 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
         </motion.section>
       </motion.div>
     </Portal>
-  )
-}
-
-function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
-  return (
-    <div className="rounded-calm border border-line bg-raised px-3 py-3 text-center shadow-calm">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 font-display text-xl font-semibold text-ink">{value}</p>
-      {hint && <p className="text-xs text-muted">{hint}</p>}
-    </div>
   )
 }

@@ -39,6 +39,15 @@ export function useHabits() {
    * read can never overwrite a newer local mutation.
    */
   const mutationVersion = useRef(0)
+  /**
+   * Synchronous mirror of `settings.freezeTokens`. The render closure can be
+   * stale, so a rapid second `freeze()` reads this ref to avoid overspending
+   * before the first render commits.
+   */
+  const tokensRef = useRef(settings.freezeTokens)
+  useEffect(() => {
+    tokensRef.current = settings.freezeTokens
+  }, [settings.freezeTokens])
 
   /** Update local state, the ref, and the module cache together. */
   const commit = useCallback((next: Habit[], start: string | null = startRef.current) => {
@@ -178,7 +187,7 @@ export function useHabits() {
   /** Spend a streak freeze to protect a habit's most recent missed day. */
   const freeze = useCallback(
     async (id: number) => {
-      if (!('freeze' in store) || settings.freezeTokens <= 0) return
+      if (!('freeze' in store) || tokensRef.current <= 0) return
       const habit = habitsRef.current.find((h) => h.id === id)
       if (!habit) return
       const date = nextFreezeDate(habit, new Date())
@@ -186,9 +195,10 @@ export function useHabits() {
       const updated = await store.freeze(id, date)
       mutationVersion.current += 1
       commit(habitsRef.current.map((h) => (h.id === id ? updated : h)))
-      updateSettings({ freezeTokens: Math.max(0, settings.freezeTokens - 1) })
+      tokensRef.current = Math.max(0, tokensRef.current - 1)
+      updateSettings((prev) => ({ freezeTokens: Math.max(0, prev.freezeTokens - 1) }))
     },
-    [commit, settings.freezeTokens, updateSettings],
+    [commit, updateSettings],
   )
 
   return {

@@ -1,6 +1,11 @@
 package com.habittracker.habit;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -14,7 +19,10 @@ import java.util.List;
  */
 public class ImportRequest {
 
+    @Valid
     private List<HabitImport> habits;
+
+    @Valid
     private List<TodoImport> todos;
 
     public List<HabitImport> getHabits() {
@@ -35,6 +43,7 @@ public class ImportRequest {
 
     /** Schedule sub-object: { "type": "weekdays", "days": [1,2,3] } or { "type": "weekly", "perWeek": 3 }. */
     public static class ScheduleImport {
+        @Pattern(regexp = "daily|weekdays|weekly", message = "Unknown schedule type")
         private String type;
         private List<Integer> days;
         private Integer perWeek;
@@ -65,17 +74,34 @@ public class ImportRequest {
     }
 
     public static class HabitImport {
+        @NotBlank(message = "Habit name is required")
+        @Size(max = 100, message = "Habit name must be less than 100 characters")
         private String name;
+
+        @Min(value = 0, message = "colorIndex must not be negative")
         private Integer colorIndex;
+
+        @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "Deadline must be a time in HH:mm format")
         private String deadline;
+
+        @Valid
         private ScheduleImport schedule;
+
         private String category;
         private String timeOfDay;
+
+        @Min(value = 0, message = "reminderOffset must not be negative")
         private Integer reminderOffset;
+
         private Integer order;
         private Boolean archived;
+
+        @Min(value = 0, message = "target must not be negative")
         private Integer target;
+
+        @Min(value = 0, message = "streakCount must not be negative")
         private Integer streakCount;
+
         private LocalDate lastCompletedDate;
         private List<LocalDate> history;
         private List<LocalDate> frozen;
@@ -203,8 +229,13 @@ public class ImportRequest {
     }
 
     public static class TodoImport {
+        @NotBlank(message = "Task title is required")
+        @Size(max = 120, message = "Task title must be less than 120 characters")
         private String title;
+
+        @Size(max = 280, message = "Note must be less than 280 characters")
         private String note;
+
         private String category;
         private LocalDate dueDate;
         @JsonFormat(pattern = "HH:mm")

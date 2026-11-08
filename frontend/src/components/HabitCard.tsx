@@ -1,14 +1,23 @@
-import { useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowDown, ArrowUp, Check, Clock, Flame, Moon, Repeat, Sun, Sunrise } from 'lucide-react'
+import { Check, Clock, Flame, GripVertical, Moon, Repeat, Sun, Sunrise } from 'lucide-react'
 import type { DayPeriod, Habit, WeekStart } from '../types'
 import { deadlineState } from '../lib/streak'
 import { isCompleteForPeriod, scheduleLabel, scheduleProgress, streakState } from '../lib/schedule'
+import { momentum, momentumTier, type MomentumTier } from '../lib/momentum'
 import { DAY_PERIODS, PERIOD_LABELS } from '../lib/dayPeriod'
 import { formatTime } from '../lib/format'
 import { useSettings } from '../context/SettingsContext'
 import { Portal } from './Portal'
+import { ReorderButtons } from './ReorderButtons'
 import { RowActions } from './RowActions'
+
+const MOMENTUM_TIERS: Record<MomentumTier, string> = {
+  starting: 'Starting',
+  building: 'Building',
+  steady: 'Steady',
+  strong: 'Strong',
+}
 
 interface HabitCardProps {
   habit: Habit
@@ -34,6 +43,8 @@ interface HabitCardProps {
   onMoveDown?: () => void
   canMoveUp?: boolean
   canMoveDown?: boolean
+  /** A one-shot, subtle pulse shown after an opted-in celebration. */
+  pulse?: { kind: 'habit' | 'milestone'; seq: number } | null
 }
 
 const palette = [
@@ -110,14 +121,33 @@ export function HabitCard({
   onMoveDown,
   canMoveUp = true,
   canMoveDown = true,
+  pulse,
 }: HabitCardProps) {
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
   const { settings } = useSettings()
+
+  // A one-shot, subtle pulse after an opted-in celebration. The parent only
+  // sends a fresh `pulse` when celebrations are on and motion is allowed, so a
+  // new `seq` is the signal to play it once.
+  const [pulsing, setPulsing] = useState(false)
+  useEffect(() => {
+    if (!pulse) return
+    setPulsing(true)
+    const timer = setTimeout(() => setPulsing(false), pulse.kind === 'milestone' ? 900 : 600)
+    return () => clearTimeout(timer)
+  }, [pulse])
 
   const complete = isCompleteForPeriod(habit, now, weekStart)
   const tone = palette[habit.colorIndex % palette.length]
 
   const streak = streakState(habit, now, settings.weekStart)
+  const streakDisplay = settings.streakDisplay
+  const reorderable = Boolean(onMoveUp || onMoveDown)
+  // A calm, forgiving view of the last month instead of a streak that resets.
+  const momentumStats = streakDisplay === 'momentum' ? momentum(habit, now) : null
+  const momentumTierLabel = momentumStats
+    ? MOMENTUM_TIERS[momentumTier(momentumStats.completed, momentumStats.of)]
+    : null
   // Keep the deadline calm: a plain time by default, a countdown only in the
   // last stretch before it, and a quiet "Past deadline" instead of a red alarm.
   // Off-day habits show their deadline as a plain time too.
@@ -150,14 +180,14 @@ export function HabitCard({
     streak.level === 'none'
       ? 'No streak yet'
       : streak.level === 'broken'
-        ? 'Streak reset'
+        ? 'Start again'
         : `${streak.count} day${streak.count === 1 ? '' : 's'} streak`
 
   const deadlineClass =
     deadline.level === 'near'
-      ? 'text-peach-500 dark:text-peach-300'
+      ? 'text-peach-700 dark:text-peach-300'
       : deadline.level === 'overdue'
-        ? 'font-medium text-amber-600 dark:text-amber-300'
+        ? 'font-medium text-amber-700 dark:text-amber-300'
         : 'text-muted dark:text-ink/80'
 
   const progress = scheduleProgress(habit, now, weekStart)
@@ -174,9 +204,25 @@ export function HabitCard({
   return (
     <motion.article
       initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={
+        pulsing
+          ? {
+              opacity: 1,
+              y: 0,
+              scale: pulse?.kind === 'milestone' ? [1, 1.04, 1] : [1, 1.02, 1],
+            }
+          : { opacity: 1, y: 0, scale: 1 }
+      }
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      transition={
+        pulsing
+          ? {
+              duration: pulse?.kind === 'milestone' ? 0.9 : 0.6,
+              ease: [0.4, 0, 0.2, 1],
+              times: [0, 0.35, 1],
+            }
+          : { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
+      }
       className={`group relative overflow-hidden rounded-calm border border-line
                  bg-raised px-4 py-4 shadow-calm sm:px-5
                  transition-all duration-calm ease-calm
@@ -184,6 +230,16 @@ export function HabitCard({
                  dark:hover:border-sage-700 ${habit.archived ? 'opacity-70' : ''}`}
     >
       <div className="flex items-center gap-3 sm:gap-4">
+        {reorderable && (
+          <span
+            className="flex shrink-0 items-center text-muted/60"
+            title="Drag to reorder"
+            aria-hidden
+          >
+            <GripVertical className="h-4 w-4" />
+          </span>
+        )}
+
         {/* Completion toggle */}
         <button
           type="button"
@@ -222,15 +278,28 @@ export function HabitCard({
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${streakChip}`}
-            >
-              <Flame
-                className={`${flameSize} transition-all duration-calm ease-calm`}
-                aria-hidden
-              />
-              {streakLabel}
-            </span>
+            {streakDisplay === 'flame' && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${streakChip}`}
+              >
+                <Flame
+                  className={`${flameSize} transition-all duration-calm ease-calm`}
+                  aria-hidden
+                />
+                {streakLabel}
+              </span>
+            )}
+            {streakDisplay === 'momentum' && momentumStats && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 font-medium text-muted dark:bg-mint-900/50">
+                {momentumTierLabel}
+                <span className="text-muted/70" aria-hidden>
+                  ·
+                </span>
+                <span className="tabular-nums">
+                  {momentumStats.completed} of {momentumStats.of} days
+                </span>
+              </span>
+            )}
             {showScheduleChip && (
               <span className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 font-medium text-muted dark:bg-mint-900/50">
                 <Repeat className="h-3 w-3" aria-hidden />
@@ -267,32 +336,14 @@ export function HabitCard({
               </button>
             )}
             {(onMoveUp || onMoveDown) && (
-              <div className="inline-flex items-center gap-1" aria-label={`Reorder ${habit.name}`}>
-                {onMoveUp && (
-                  <button
-                    type="button"
-                    onClick={onMoveUp}
-                    disabled={!canMoveUp}
-                    aria-label={`Move ${habit.name} up`}
-                    className="silicone flex h-11 w-11 items-center justify-center rounded-full text-muted
-                               transition-colors duration-calm ease-calm hover:text-ink disabled:opacity-40"
-                  >
-                    <ArrowUp className="h-4 w-4" aria-hidden />
-                  </button>
-                )}
-                {onMoveDown && (
-                  <button
-                    type="button"
-                    onClick={onMoveDown}
-                    disabled={!canMoveDown}
-                    aria-label={`Move ${habit.name} down`}
-                    className="silicone flex h-11 w-11 items-center justify-center rounded-full text-muted
-                               transition-colors duration-calm ease-calm hover:text-ink disabled:opacity-40"
-                  >
-                    <ArrowDown className="h-4 w-4" aria-hidden />
-                  </button>
-                )}
-              </div>
+              <ReorderButtons
+                label={habit.name}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                canMoveUp={canMoveUp}
+                canMoveDown={canMoveDown}
+                className="inline-flex items-center gap-1"
+              />
             )}
           </div>
           {habit.archived && (
@@ -300,7 +351,7 @@ export function HabitCard({
           )}
         </div>
 
-        {/* Leaf → tap → spin → edit + archive + delete */}
+        {/* Overflow menu → tap → spin → edit + archive + delete */}
         <RowActions
           id={habit.id}
           label={habit.name}

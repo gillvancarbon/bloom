@@ -73,8 +73,9 @@ public class BloomSoundPlugin extends Plugin {
             call.resolve();
             return;
         }
+        MediaPlayer player = null;
         try {
-            final MediaPlayer player = new MediaPlayer();
+            player = new MediaPlayer();
             player.setAudioAttributes(new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION)
@@ -97,6 +98,11 @@ public class BloomSoundPlugin extends Plugin {
             player.start();
         } catch (Exception e) {
             Log.w(TAG, "Could not play sound " + id, e);
+            // Release a player whose setup (setDataSource/prepare/start) failed,
+            // otherwise it leaks the native player and its file descriptor.
+            if (player != null) {
+                player.release();
+            }
         }
         call.resolve();
     }

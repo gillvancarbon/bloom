@@ -124,6 +124,55 @@ describe('parseBundle', () => {
     expect(bundle.settings).toMatchObject({ timeFormat: '24', weekStart: 1, onboarded: true })
   })
 
+  it('round-trips the newer settings fields', () => {
+    const text = toJson([], [], new Date('2026-11-05T10:00:00.000Z'), {
+      streakDisplay: 'flame',
+      celebrations: true,
+      haptics: true,
+      quietHoursEnabled: true,
+      quietHoursStart: '21:30',
+      quietHoursEnd: '06:45',
+      reminderDigest: true,
+      followClockNotice: false,
+    } as never)
+    const bundle = parseBundle(text)
+    expect(bundle.settings).toMatchObject({
+      streakDisplay: 'flame',
+      celebrations: true,
+      haptics: true,
+      quietHoursEnabled: true,
+      quietHoursStart: '21:30',
+      quietHoursEnd: '06:45',
+      reminderDigest: true,
+      followClockNotice: false,
+    })
+  })
+
+  it('imports an older bundle that predates the newer settings fields', () => {
+    const legacy = JSON.stringify({
+      app: 'Bloom',
+      schemaVersion: 1,
+      exportedAt: '2026-01-01T00:00:00.000Z',
+      habits: [],
+      todos: [],
+      settings: { timeFormat: '24', weekStart: 1, onboarded: true, followClock: false },
+    })
+    const bundle = parseBundle(legacy)
+    expect(bundle.settings).toMatchObject({
+      timeFormat: '24',
+      // The legacy flag survives untouched.
+      followClock: false,
+      streakDisplay: 'momentum',
+      celebrations: false,
+      haptics: false,
+      quietHoursEnabled: false,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '07:00',
+      reminderDigest: false,
+      followClockNotice: true,
+    })
+  })
+
   it('treats a snapshot with no version as the original format', () => {
     const bundle = parseBundle('{"app":"Bloom","habits":[],"todos":[]}')
     expect(bundle.habits).toEqual([])

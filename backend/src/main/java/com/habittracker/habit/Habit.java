@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.hibernate.annotations.BatchSize;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -47,14 +48,20 @@ public class Habit {
     @Column(name = "deadline", length = 5)
     private String deadline;
 
-    /** Every day this habit was completed — powers the consistency calendar. */
+    /**
+     * Every day this habit was completed — powers the consistency calendar.
+     * Kept EAGER so the JSON shape is unchanged, but batched so listing N habits
+     * costs a couple of queries instead of one per habit (avoids the N+1).
+     */
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @CollectionTable(name = "habit_completions", joinColumns = @JoinColumn(name = "habit_id"))
     @Column(name = "completed_date", nullable = false)
     private Set<LocalDate> completedDates = new LinkedHashSet<>();
 
     /** Days protected by a streak freeze — they keep the streak alive without a completion. */
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @CollectionTable(name = "habit_frozen", joinColumns = @JoinColumn(name = "habit_id"))
     @Column(name = "frozen_date", nullable = false)
     private Set<LocalDate> frozen = new LinkedHashSet<>();
@@ -366,6 +373,10 @@ public class Habit {
      */
     public void decrementStreak() {
         LocalDate today = LocalDate.now();
+        if (lastCompletedDate == null || !lastCompletedDate.equals(today)) {
+            // Today was never completed — nothing legitimate to undo.
+            return;
+        }
         this.completedDates.remove(today);
         this.streakCount = Math.max(0, this.streakCount - 1);
         this.lastCompletedDate = latestCompletedDate();
@@ -399,8 +410,13 @@ public class Habit {
      * How many scheduled occurrences were missed strictly between {@code from}
      * and {@code to} (both exclusive). Daily habits count calendar days,
      * weekday habits only their scheduled days, and weekly habits count whole
-     * ISO weeks that fell short of the per-week target. Completed and frozen
-     * days are never missed.
+     * ISO weeks that fell short of the per-week target. For daily and weekday
+     * schedules completed and frozen days are never missed; a weekly target is
+     * met by completed days only, matching the frontend's {@code completionsThisWeek}.
+     *
+     * Note: weekly weeks are always ISO/Monday-based here, whereas the frontend
+     * honours the user's {@code weekStart} setting. For a non-Monday week start
+     * the two can therefore disagree by a day or two at a week boundary.
      */
     int countMissedScheduledOccurrences(LocalDate from, LocalDate to) {
         if (from == null || to == null || !from.isBefore(to)) {
@@ -461,8 +477,12 @@ public class Habit {
             return 0;
         }
 
+        // Match the web model's one-week grace: the week of the last kept day is
+        // never judged, judging starts with the following week.
         int missed = 0;
-        for (LocalDate week = lastWeekStart; week.isBefore(todayWeekStart); week = week.plusWeeks(1)) {
+        for (LocalDate week = lastWeekStart.plusWeeks(1);
+                week.isBefore(todayWeekStart);
+                week = week.plusWeeks(1)) {
             if (completionsInWeek(week) < perWeek) {
                 missed++;
             }
@@ -470,11 +490,17 @@ public class Habit {
         return missed;
     }
 
+    /**
+     * How many times the habit was completed within the ISO week starting
+     * {@code weekStart} (always Monday). Frozen days keep the streak alive but do
+     * not satisfy a weekly target, so only completed dates count — the same rule
+     * as the frontend's {@code completionsThisWeek}, except the frontend anchors
+     * weeks to the user's {@code weekStart} setting while this is fixed to ISO/Monday.
+     */
     private int completionsInWeek(LocalDate weekStart) {
         int count = 0;
         for (int i = 0; i < 7; i++) {
-            LocalDate day = weekStart.plusDays(i);
-            if (completedDates.contains(day) || frozen.contains(day)) {
+            if (completedDates.contains(weekStart.plusDays(i))) {
                 count++;
             }
         }

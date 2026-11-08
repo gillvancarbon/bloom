@@ -79,6 +79,27 @@ describe('QuickAddBar', () => {
     expect(screen.getByText('Add a title for your task.')).toBeInTheDocument()
   })
 
+  it('rejects a title longer than 120 characters with an inline error', async () => {
+    const user = userEvent.setup()
+    const { onAdd, input } = setup()
+
+    await user.type(input, 'a'.repeat(121))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(screen.getByText('Keep the title under 120 characters.')).toBeInTheDocument()
+  })
+
+  it('accepts a title of exactly 120 characters', async () => {
+    const user = userEvent.setup()
+    const { onAdd, input } = setup()
+
+    await user.type(input, 'a'.repeat(120))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    expect(onAdd).toHaveBeenCalledTimes(1)
+  })
+
   it('hides guidance chips when switched off but keeps /help available', async () => {
     const user = userEvent.setup()
     const { input } = setup(false)

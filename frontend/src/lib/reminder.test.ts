@@ -6,6 +6,7 @@ import {
   nearestReminderPreset,
   normalizeReminderOffset,
   offsetPhrase,
+  quietWindow,
   reminderBody,
   reminderClock,
   reminderPreview,
@@ -98,6 +99,22 @@ describe('reminderTimeFor / reminderPreview', () => {
   it('previews the computed clock time', () => {
     expect(reminderTimeFor(habit, SETTINGS)).toBe('20:00')
     expect(reminderPreview(habit, SETTINGS)).toBe('8:00 PM')
+  })
+})
+
+describe('quietWindow', () => {
+  it('is null when quiet hours are off', () => {
+    expect(quietWindow({ ...SETTINGS, quietHoursEnabled: false })).toBeNull()
+  })
+
+  it('returns the configured window when on', () => {
+    const settings = {
+      ...SETTINGS,
+      quietHoursEnabled: true,
+      quietHoursStart: '21:30',
+      quietHoursEnd: '06:15',
+    } as Settings
+    expect(quietWindow(settings)).toEqual({ start: '21:30', end: '06:15' })
   })
 })
 

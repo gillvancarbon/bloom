@@ -18,7 +18,7 @@ interface SettingsContextValue {
   settings: Settings
   /** True once the stored settings have been read. */
   ready: boolean
-  update: (patch: Partial<Settings>) => void
+  update: (patch: Partial<Settings> | ((prev: Settings) => Partial<Settings>)) => void
   /** Replace settings wholesale (used after a restore). */
   replace: (next: Settings) => void
 }
@@ -29,6 +29,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [ready, setReady] = useState(false)
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
+  /**
+   * Mirror of the latest settings. `update` resolves functional patches and
+   * computes the next value outside the state updater, which must stay pure —
+   * StrictMode otherwise runs it twice and can persist a discarded value.
+   */
+  const settingsRef = useRef(settings)
+
+  const persist = useCallback((next: Settings) => {
+    // Serialise writes so rapid toggles can't race and clobber each other.
+    writeQueue.current = writeQueue.current
+      .then(() => settingsStore.write(next))
+      .catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -39,9 +52,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Top up streak freezes for the new week before the UI reads them.
       const refill = freezeRefillPatch(stored, new Date())
       const initial = refill ? normalizeSettings({ ...stored, ...refill }) : stored
+      settingsRef.current = initial
       setSettings(initial)
       setReady(true)
-      if (refill) void settingsStore.write(initial)
+      if (refill) persist(initial)
 
       // Automatic daily local backup — never block the UI on it.
       if (stored.autoBackupEnabled) {
@@ -49,7 +63,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           .createIfDue(true)
           .then((backup) => {
             if (backup && !cancelled) {
-              setSettings((prev) => ({ ...prev, lastBackupAt: backup.at }))
+              const merged = normalizeSettings({ ...settingsRef.current, lastBackupAt: backup.at })
+              settingsRef.current = merged
+              setSettings(merged)
+              persist(merged)
             }
           })
           .catch(() => undefined)
@@ -59,22 +76,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
-
-  const persist = useCallback((next: Settings) => {
-    // Serialise writes so rapid toggles can't race and clobber each other.
-    writeQueue.current = writeQueue.current
-      .then(() => settingsStore.write(next))
-      .catch(() => undefined)
-  }, [])
+  }, [persist])
 
   const update = useCallback(
-    (patch: Partial<Settings>) => {
-      setSettings((prev) => {
-        const next = normalizeSettings({ ...prev, ...patch })
-        persist(next)
-        return next
-      })
+    (patch: Partial<Settings> | ((prev: Settings) => Partial<Settings>)) => {
+      const prev = settingsRef.current
+      const resolved = typeof patch === 'function' ? patch(prev) : patch
+      const next = normalizeSettings({ ...prev, ...resolved })
+      settingsRef.current = next
+      setSettings(next)
+      persist(next)
     },
     [persist],
   )
@@ -82,6 +93,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const replace = useCallback(
     (next: Settings) => {
       const normalized = normalizeSettings(next)
+      settingsRef.current = normalized
       setSettings(normalized)
       persist(normalized)
     },
