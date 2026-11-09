@@ -26,20 +26,24 @@ export function periodFromTime(date: Date): DayPeriod {
 /**
  * The period "follow the clock" should switch to, or null to stay put.
  *
- * Anytime sits outside the clock — it is a bucket, not a time of day — so a
- * reader deliberately viewing it is never pulled away, not even when the clock
- * crosses a boundary. Otherwise the view advances only when the clock enters a
- * new period (or the moment following is switched on), and never re-selects the
- * period already on screen.
+ * Switching following on adopts the clock's period at once, from whatever is on
+ * screen — that tap is the reader asking the view to track the day, so it must
+ * take effect immediately even from "All day".
+ *
+ * Afterwards the view only moves when the clock enters a new period, and never
+ * re-selects the period already on screen. Anytime and the all-day list sit
+ * outside the clock — they are buckets the reader picked, not times of day — so
+ * the clock never pulls anyone out of them on its own.
  */
 export function clockAdvance(
-  viewed: DayPeriod,
+  viewed: DayPeriod | 'all',
   clock: DayPeriod,
   lastClock: DayPeriod,
   justEnabled: boolean,
 ): DayPeriod | null {
-  if (viewed === 'anytime') return null
-  if (!justEnabled && clock === lastClock) return null
+  if (justEnabled) return clock === viewed ? null : clock
+  if (viewed === 'anytime' || viewed === 'all') return null
+  if (clock === lastClock) return null
   return clock === viewed ? null : clock
 }
 

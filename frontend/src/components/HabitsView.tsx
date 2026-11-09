@@ -204,8 +204,11 @@ export function HabitsView({
   const [pulses, setPulses] = useState<
     Record<number, { kind: 'habit' | 'milestone'; seq: number }>
   >({})
-  /** The period a follow-the-clock step moved away from, for a gentle Undo. */
-  const [clockNotice, setClockNotice] = useState<{ from: DayPeriod; to: DayPeriod } | null>(null)
+  /** The view a follow-the-clock step moved away from, for a gentle Undo. */
+  const [clockNotice, setClockNotice] = useState<{
+    from: DayPeriod | 'all'
+    to: DayPeriod
+  } | null>(null)
   const now = useNow()
   const reducedMotion = useReducedMotion()
   const undo = useUndoQueue()
@@ -348,15 +351,16 @@ export function HabitsView({
     requestAnimationFrame(() => document.getElementById(`period-filter-${next}`)?.focus())
   }
 
-  /** Undo a follow-the-clock step: return to the period we were viewing. */
+  /** Undo a follow-the-clock step: return to the view we were on. */
   function undoClockAdvance() {
     if (!clockNotice) return
     setFilter(clockNotice.from)
     setClockNotice(null)
   }
 
-  // When "follow the clock" is on, step the filter as the day moves. Anytime is
-  // left alone entirely, and the all-day view is never yanked away.
+  // When "follow the clock" is on, step the filter as the day moves. Switching
+  // it on adopts the current period even from the all-day list; after that the
+  // all-day list and Anytime are left alone when the reader picks them.
   useEffect(() => {
     const current = periodFromTime(now)
     if (!settings.followClock) {
@@ -367,10 +371,6 @@ export function HabitsView({
 
     const justEnabled = !wasFollowingClock.current
     wasFollowingClock.current = true
-    if (filter === 'all') {
-      lastClockPeriod.current = current
-      return
-    }
     const target = clockAdvance(filter, current, lastClockPeriod.current, justEnabled)
     lastClockPeriod.current = current
     if (!target) return

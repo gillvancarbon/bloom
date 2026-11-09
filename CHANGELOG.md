@@ -4,6 +4,16 @@ All notable changes to Bloom are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] — 2026-11-09
+
+### Fixed
+
+- **Follow the clock** now takes effect when you switch it on. The habits view
+  opens on **All day**, and following the clock skipped any view that was not a
+  single period — including at the moment the setting was enabled — so turning
+  it on appeared to do nothing. Switching it on now shows the current period at
+  once; **All day** and **Anytime** are still left alone when you pick them.
+
 ## [1.5.0] — 2026-11-09
 
 A calmer, more forgiving pass: streaks can step back, nudges can be quieted, and

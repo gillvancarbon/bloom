@@ -93,8 +93,9 @@ Habits are grouped into **Morning**, **Afternoon**, **Evening** and **Anytime**.
 Tap a chip or swipe left and right to move between them. Each chip shows the
 done/total count and flags overdue work.
 
-- **Anytime** is a bucket rather than a time of day, so **Follow the clock**
-  never pulls you out of it.
+- **Anytime** and **All day** are views you pick rather than times of day, so
+  **Follow the clock** never pulls you out of them. Switching it on shows the
+  current period straight away, whatever you were looking at.
 - Press and hold a card to drag it into a new order.
 - Tap the leaf on a card for **edit**, **archive** and **delete**.
 - Habits not scheduled today — an off-day, or a weekly habit whose target is

@@ -79,9 +79,29 @@ describe('clockAdvance (follow the clock)', () => {
     expect(clockAdvance('morning', 'morning', 'evening', true)).toBeNull()
   })
 
+  it('leaves the all-day list for the clock the moment following is switched on', () => {
+    // The all-day list is the default view, so switching the setting on has to
+    // take effect from there — otherwise the feature looks dead.
+    expect(clockAdvance('all', 'afternoon', 'evening', true)).toBe('afternoon')
+    expect(clockAdvance('all', 'evening', 'afternoon', true)).toBe('evening')
+  })
+
+  it('leaves the all-day list and Anytime alone while following', () => {
+    // Once the reader has chosen a bucket, a boundary crossing does not pull
+    // them out of it; they get it back by picking a period again.
+    expect(clockAdvance('all', 'afternoon', 'morning', false)).toBeNull()
+    expect(clockAdvance('anytime', 'morning', 'evening', false)).toBeNull()
+  })
+
   it('never pulls the reader away from Anytime', () => {
     expect(clockAdvance('anytime', 'morning', 'evening', false)).toBeNull()
-    expect(clockAdvance('anytime', 'evening', 'afternoon', true)).toBeNull()
+    expect(clockAdvance('anytime', 'evening', 'afternoon', false)).toBeNull()
+  })
+
+  it('follows the clock again when it crosses a boundary', () => {
+    expect(clockAdvance('afternoon', 'evening', 'afternoon', false)).toBe('evening')
+    // A period the reader picked ahead of the clock is respected until then.
+    expect(clockAdvance('evening', 'afternoon', 'afternoon', false)).toBeNull()
   })
 })
 
