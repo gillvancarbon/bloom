@@ -75,214 +75,211 @@ export function TodoCard({
   const canExpand = steps.total > 0
   const reschedulable = due.level === 'overdue' && !todo.done && !todo.archived && onReschedule
 
+  const overdue = due.level === 'overdue' && !todo.done
   const dueClass =
     due.level === 'overdue'
-      ? 'font-medium text-peach-600 dark:text-peach-300'
+      ? 'font-semibold text-peach-700 dark:text-peach-300'
       : due.level === 'today'
-        ? 'text-sage-600 dark:text-sage-300'
+        ? 'font-medium text-sage-600 dark:text-sage-300'
         : 'text-muted'
 
   return (
     <motion.article
       layout
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={
-        pulsing ? { opacity: 1, y: 0, scale: [1, 1.015, 1] } : { opacity: 1, y: 0, scale: 1 }
+        pulsing ? { opacity: 1, y: 0, scale: [1, 1.012, 1] } : { opacity: 1, y: 0, scale: 1 }
       }
-      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.2 } }}
       transition={
         pulsing
           ? { duration: 0.6, ease: [0.4, 0, 0.2, 1], times: [0, 0.35, 1] }
-          : { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
+          : { duration: 0.32, ease: [0.4, 0, 0.2, 1] }
       }
-      className={`group relative overflow-hidden rounded-calm border border-line
-                  bg-raised px-4 py-3.5 shadow-calm sm:px-5
-                  transition-all duration-calm ease-calm
-                  hover:border-sage-300 hover:shadow-calm-lg
-                  dark:hover:border-sage-700 ${todo.done ? 'opacity-80' : ''} ${
-                    todo.archived ? 'opacity-70' : ''
-                  }`}
+      className={`group relative flex items-start gap-3 border-b border-line/70 py-3.5
+                 transition-colors duration-calm ease-calm first:border-t last:border-b-0
+                 sm:gap-4 ${todo.done ? 'opacity-70' : ''} ${todo.archived ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-start gap-3 sm:gap-4">
-        {selectable ? (
-          /* Bulk selection checkbox */
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={selected}
-            aria-label={`Select ${todo.title}`}
-            onClick={() => onSelect?.(todo)}
-            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border
-                        transition-colors duration-calm ease-calm sm:h-11 sm:w-11 ${
-                          selected
-                            ? 'border-sage-500 bg-sage-500 text-white'
-                            : 'border-line bg-surface text-transparent hover:border-sage-300'
-                        }`}
-          >
-            <Check className="h-5 w-5" aria-hidden />
-          </button>
-        ) : (
-          /* Completion toggle */
-          <button
-            type="button"
-            onClick={() => onToggle(todo)}
-            disabled={busy}
-            aria-pressed={todo.done}
-            aria-label={
-              todo.done ? `Mark ${todo.title} as not done` : `Mark ${todo.title} complete`
-            }
-            title={todo.done ? 'Mark as not done' : 'Mark complete'}
-            className={`${todo.done ? 'silicone-primary' : 'silicone'} mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center
-                        rounded-full sm:h-11 sm:w-11 ${busy ? 'opacity-60' : ''}`}
-          >
-            <Check
-              className={`h-5 w-5 transition-all duration-calm ease-calm ${
-                todo.done
-                  ? 'scale-100 opacity-100'
-                  : 'scale-75 text-sage-500 opacity-50 dark:text-sage-300'
-              }`}
-              aria-hidden
-            />
-          </button>
-        )}
-
-        {/* Title + type + due date */}
-        <div className="min-w-0 flex-1">
-          <h3
-            className={`break-words font-display text-sm font-semibold sm:text-base ${
-              todo.done ? 'text-muted line-through decoration-mint-400/80' : 'text-ink'
+      {selectable ? (
+        /* Bulk selection checkbox */
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={`Select ${todo.title}`}
+          onClick={() => onSelect?.(todo)}
+          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2
+                      transition-colors duration-calm ease-calm sm:h-10 sm:w-10 ${
+                        selected
+                          ? 'border-sage-500 bg-sage-500 text-white'
+                          : 'border-line text-transparent hover:border-sage-300'
+                      }`}
+        >
+          <Check className="h-[18px] w-[18px]" strokeWidth={2.6} aria-hidden />
+        </button>
+      ) : (
+        /* Completion control — a ring that fills with sage and stamps a check. */
+        <button
+          type="button"
+          onClick={() => onToggle(todo)}
+          disabled={busy}
+          aria-pressed={todo.done}
+          aria-label={todo.done ? `Mark ${todo.title} as not done` : `Mark ${todo.title} complete`}
+          title={todo.done ? 'Mark as not done' : 'Mark complete'}
+          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2
+                      transition-all duration-calm ease-calm active:scale-90 sm:h-10 sm:w-10
+                      ${busy ? 'opacity-60' : ''} ${
+                        todo.done
+                          ? 'border-sage-500 bg-sage-500 text-white shadow-calm'
+                          : overdue
+                            ? 'border-peach-400 text-peach-600 hover:bg-peach-500/5 dark:border-peach-500 dark:text-peach-300 dark:hover:bg-peach-400/5'
+                            : 'border-mint-400 text-sage-600 hover:bg-sage-500/5 dark:border-mint-600 dark:text-sage-300 dark:hover:bg-sage-400/5'
+                      }`}
+        >
+          <Check
+            className={`h-[18px] w-[18px] transition-all duration-calm ease-calm ${
+              todo.done ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
             }`}
+            strokeWidth={2.6}
+            aria-hidden
+          />
+        </button>
+      )}
+
+      {/* Title + facts */}
+      <div className="min-w-0 flex-1">
+        <h3
+          className={`break-words font-display text-[15px] font-semibold leading-snug sm:text-base ${
+            todo.done ? 'text-muted line-through decoration-mint-400/70' : 'text-ink'
+          }`}
+        >
+          {todo.title}
+        </h3>
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+          <span
+            className={`inline-flex items-center gap-1 ${category.chip} rounded-full px-2 py-0.5 font-medium`}
           >
-            {todo.title}
-          </h3>
+            <CategoryIcon className="h-3 w-3 shrink-0" aria-hidden />
+            {category.label}
+          </span>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${category.chip}`}
-            >
-              <CategoryIcon className="h-3 w-3" aria-hidden />
-              {category.label}
+          <span className="inline-flex items-center gap-1 text-muted">
+            <ImportanceIcon className="h-3 w-3 shrink-0" aria-hidden />
+            {importance.label}
+          </span>
+
+          {due.level !== 'none' && !todo.done && (
+            <span className={`inline-flex items-center gap-1 tabular-nums ${dueClass}`}>
+              <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
+              {due.text}
             </span>
+          )}
 
-            <span
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium ${importance.chip}`}
-            >
-              <ImportanceIcon className="h-3 w-3" aria-hidden />
-              {importance.label}
+          {repeat && (
+            <span className="inline-flex items-center gap-1 text-muted">
+              <Repeat className="h-3 w-3 shrink-0" aria-hidden />
+              {repeat}
             </span>
+          )}
 
-            {due.level !== 'none' && !todo.done && (
-              <span className={`inline-flex items-center gap-1 ${dueClass}`}>
-                <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-                {due.text}
-              </span>
-            )}
-
-            {repeat && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-mint-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                <Repeat className="h-3 w-3" aria-hidden />
-                {repeat}
-              </span>
-            )}
-
-            {canExpand && (
-              <button
-                type="button"
-                onClick={onToggleExpand}
-                aria-expanded={expanded}
-                className="inline-flex items-center gap-1 rounded-md bg-mint-100 px-2 py-0.5 font-medium
-                           text-sage-700 transition-colors duration-calm ease-calm
-                           hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70"
-              >
-                <ListChecks className="h-3 w-3" aria-hidden />
-                {steps.done}/{steps.total} steps
-                <ChevronDown
-                  className={`h-3 w-3 transition-transform duration-calm ease-calm ${
-                    expanded ? 'rotate-180' : ''
-                  }`}
-                  aria-hidden
-                />
-              </button>
-            )}
-          </div>
-
-          {reschedulable && (
+          {canExpand && (
             <button
               type="button"
-              onClick={() => onReschedule(todo, toISODate(now))}
-              className="mt-2 inline-flex items-center gap-1 rounded-full bg-peach-100 px-2.5 py-1 text-xs font-semibold
-                         text-peach-700 transition-colors duration-calm ease-calm
-                         hover:bg-peach-200 dark:bg-peach-900/40 dark:text-peach-200 dark:hover:bg-peach-900/70"
+              onClick={onToggleExpand}
+              aria-expanded={expanded}
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-muted
+                         transition-colors duration-calm ease-calm hover:bg-mint-100 hover:text-ink
+                         dark:hover:bg-mint-900/40"
             >
-              <MoveRight className="h-3.5 w-3.5" aria-hidden />
-              Move to today
+              <ListChecks className="h-3 w-3 shrink-0" aria-hidden />
+              {steps.done}/{steps.total} steps
+              <ChevronDown
+                className={`h-3 w-3 shrink-0 transition-transform duration-calm ease-calm ${
+                  expanded ? 'rotate-180' : ''
+                }`}
+                aria-hidden
+              />
             </button>
-          )}
-
-          {canExpand && expanded && (
-            <ul className="mt-2 space-y-1">
-              {todo.subtasks.map((subtask) => (
-                <li key={subtask.id}>
-                  <button
-                    type="button"
-                    onClick={() => onToggleSubtask?.(todo, subtask.id)}
-                    disabled={busy}
-                    className="flex w-full items-center gap-2 rounded-calm-sm px-1 py-1 text-left text-xs
-                               text-muted transition-colors duration-calm ease-calm hover:text-ink"
-                  >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        subtask.done
-                          ? 'border-sage-500 bg-sage-500 text-white'
-                          : 'border-line bg-surface'
-                      }`}
-                    >
-                      {subtask.done && <Check className="h-2.5 w-2.5" aria-hidden />}
-                    </span>
-                    <span className={subtask.done ? 'line-through decoration-mint-400/80' : ''}>
-                      {subtask.title}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {todo.archived && (
-            <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-              Archived
-            </p>
-          )}
-
-          {todo.note && (
-            <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">{todo.note}</p>
           )}
         </div>
 
-        {!selectable &&
-          (onMoveUp || onMoveDown ? (
-            <ReorderButtons
-              label={todo.title}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              canMoveUp={canMoveUp}
-              canMoveDown={canMoveDown}
-              role="group"
-              className="flex shrink-0 flex-col gap-1"
-            />
-          ) : (
-            <RowActions
-              id={todo.id}
-              label={todo.title}
-              archived={todo.archived}
-              open={actionsOpen}
-              onToggle={onToggleActions}
-              onEdit={() => onEdit(todo)}
-              onArchive={onArchive ? () => onArchive(todo) : undefined}
-              onDelete={() => onDelete(todo)}
-            />
-          ))}
+        {reschedulable && (
+          <button
+            type="button"
+            onClick={() => onReschedule(todo, toISODate(now))}
+            className="mt-2 inline-flex items-center gap-1 rounded-full bg-peach-500/10 px-2.5 py-1 text-xs font-semibold
+                       text-peach-700 transition-colors duration-calm ease-calm hover:bg-peach-500/20
+                       dark:text-peach-300"
+          >
+            <MoveRight className="h-3.5 w-3.5" aria-hidden />
+            Move to today
+          </button>
+        )}
+
+        {canExpand && expanded && (
+          <ul className="mt-2 space-y-0.5">
+            {todo.subtasks.map((subtask) => (
+              <li key={subtask.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggleSubtask?.(todo, subtask.id)}
+                  disabled={busy}
+                  className="flex w-full items-center gap-2 rounded-calm-sm px-1 py-1 text-left text-xs
+                             text-muted transition-colors duration-calm ease-calm hover:text-ink"
+                >
+                  <span
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                      subtask.done
+                        ? 'border-sage-500 bg-sage-500 text-white'
+                        : 'border-line bg-surface'
+                    }`}
+                  >
+                    {subtask.done && <Check className="h-2.5 w-2.5" aria-hidden />}
+                  </span>
+                  <span className={subtask.done ? 'line-through decoration-mint-400/80' : ''}>
+                    {subtask.title}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {todo.note && (
+          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">{todo.note}</p>
+        )}
+
+        {todo.archived && (
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+            Archived
+          </p>
+        )}
       </div>
+
+      {!selectable &&
+        (onMoveUp || onMoveDown ? (
+          <ReorderButtons
+            label={todo.title}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
+            role="group"
+            className="flex shrink-0 flex-col gap-1"
+          />
+        ) : (
+          <RowActions
+            id={todo.id}
+            label={todo.title}
+            archived={todo.archived}
+            open={actionsOpen}
+            onToggle={onToggleActions}
+            onEdit={() => onEdit(todo)}
+            onArchive={onArchive ? () => onArchive(todo) : undefined}
+            onDelete={() => onDelete(todo)}
+          />
+        ))}
     </motion.article>
   )
 }

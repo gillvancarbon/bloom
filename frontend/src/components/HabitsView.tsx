@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'framer-motion'
-import { Archive, CalendarClock, Check, ChevronDown, Flame, Plus, Sparkles, X } from 'lucide-react'
+import { Archive, CalendarClock, Check, Plus, Sparkles, X } from 'lucide-react'
 import { AppHeader } from './AppHeader'
 import { HabitCard } from './HabitCard'
 import { HabitForm } from './HabitForm'
@@ -19,7 +19,16 @@ import { InsightsView } from './InsightsView'
 import { TemplatePicker, toHabitInputs } from './TemplatePicker'
 import { FreezeSheet } from './FreezeSheet'
 import { FrozenFlame } from './FrozenFlame'
-import { Stat } from './Stat'
+import { DaySummary } from './DaySummary'
+import { Button } from './ui/Button'
+import { Chip } from './ui/Chip'
+import { Collapsible } from './ui/Collapsible'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorState } from './ui/ErrorState'
+import { SELECT_CHEVRON } from './ui/Field'
+import { IconButton } from './ui/IconButton'
+import { SectionHeading } from './ui/SectionHeading'
+import { SkeletonList } from './ui/Skeleton'
 import { UndoToast } from './UndoToast'
 import { useHabits } from '../hooks/useHabits'
 import { useNow } from '../hooks/useNow'
@@ -70,6 +79,34 @@ const MILESTONE_STREAKS = [7, 30, 100]
 
 /** How long the "following the clock" notice stays before fading away. */
 const CLOCK_NOTICE_MS = 6000
+
+/**
+ * A calm, human line about the day, shown beside the progress figure. It
+ * never scolds: a missed deadline is framed as "still open", and an empty day
+ * simply points at the next small step.
+ */
+function dayMessage({
+  done,
+  total,
+  overdue,
+  hasHabits,
+}: {
+  done: number
+  total: number
+  overdue: number
+  hasHabits: boolean
+}): string {
+  if (!hasHabits) return 'Add a habit to begin your rhythm.'
+  if (total === 0) return 'Nothing scheduled today — enjoy the space.'
+  if (overdue > 0) {
+    return overdue === 1
+      ? 'One habit is past its deadline — still time to close the day well.'
+      : `${overdue} habits are past their deadline — still time to close the day well.`
+  }
+  if (done === total) return 'Everything done. A good day, gently finished.'
+  if (done === 0) return 'A fresh day. Begin with the smallest one.'
+  return `${total - done} left to go. One at a time.`
+}
 
 /** One reorderable habit row. Press and hold a card, then drag to reposition. */
 function HabitRow({
@@ -558,75 +595,64 @@ export function HabitsView({
         onOpenInsights={() => setInsightsOpen(true)}
       />
 
-      {/* Stats */}
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-        className="mb-6 grid grid-cols-3 gap-2 sm:gap-3"
-      >
-        <Stat
-          label="Done today"
-          value={`${doneToday} / ${todayHabits.length}`}
-          title="Habits completed today out of habits scheduled today"
+      {/* Today at a glance — the day's progress leads the screen. Hidden for a
+          user with no habits yet, where "0/0 · 0 days in a row" is only noise
+          sitting above the empty state that already explains what to do. */}
+      {!loading && !error && activeHabits.length > 0 && (
+        <DaySummary
+          done={doneToday}
+          total={todayHabits.length}
+          streak={streak}
+          overdue={overdue}
+          message={dayMessage({
+            done: doneToday,
+            total: todayHabits.length,
+            overdue,
+            hasHabits: activeHabits.length > 0,
+          })}
         />
-        <Stat
-          label="Day streak"
-          value={streak}
-          accent={streak > 0}
-          icon={Flame}
-          title="Days in a row with at least one habit done"
-        />
-        <Stat
-          label="Overdue"
-          value={overdue}
-          accent={overdue > 0}
-          title="Habits past today's deadline and not done"
-        />
-      </motion.section>
+      )}
 
       {/* Add habit */}
-      <div className="mb-5 flex items-center justify-between gap-2">
-        <h2 className="font-display text-base font-semibold text-ink sm:text-lg">Your habits</h2>
-        <div className="flex items-center gap-2">
-          {canFreeze && (
-            <button
-              type="button"
-              onClick={() => setFreezeOpen(true)}
-              aria-label={`Streak freezes: ${settings.freezeTokens} left`}
-              title="Streak freezes"
-              className="silicone-frost relative flex h-9 w-9 items-center justify-center rounded-full"
+      <SectionHeading
+        action={
+          <>
+            {/* With no habits there is nothing to freeze, so the control (and
+                its loud frost badge) stays out of the empty state. */}
+            {canFreeze && activeHabits.length > 0 && (
+              <IconButton
+                icon={FrozenFlame}
+                label={`Streak freezes: ${settings.freezeTokens} left`}
+                tone="frost"
+                size="sm"
+                badge={settings.freezeTokens}
+                onClick={() => setFreezeOpen(true)}
+              />
+            )}
+            {activeHabits.length > 0 && (
+              <Button
+                icon={Sparkles}
+                variant="secondary"
+                size="sm"
+                iconOnlyOnMobile
+                onClick={() => setTemplatesOpen(true)}
+              >
+                Templates
+              </Button>
+            )}
+            <Button
+              icon={Plus}
+              variant="primary"
+              size="sm"
+              onClick={() => openCreate(filter === 'all' ? periodFromTime(new Date()) : filter)}
             >
-              <FrozenFlame className="h-4 w-4" />
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full border border-white/70 bg-white px-1 text-[10px] font-bold text-sky-700 dark:border-sky-950 dark:bg-sky-900 dark:text-sky-100">
-                {settings.freezeTokens}
-              </span>
-            </button>
-          )}
-          {activeHabits.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setTemplatesOpen(true)}
-              aria-label="Browse templates"
-              title="Browse templates"
-              className="silicone-quiet inline-flex h-9 w-9 items-center justify-center rounded-full
-                         text-muted hover:text-ink sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2
-                         sm:text-sm sm:font-medium"
-            >
-              <Sparkles className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Templates</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => openCreate(filter === 'all' ? periodFromTime(new Date()) : filter)}
-            className="silicone-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add habit
-          </button>
-        </div>
-      </div>
+              Add habit
+            </Button>
+          </>
+        }
+      >
+        Your habits
+      </SectionHeading>
 
       {/* A view that advanced with the clock offers a calm way back. */}
       <AnimatePresence>
@@ -637,7 +663,7 @@ export function HabitsView({
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             role="status"
-            className="mb-3 flex items-center justify-between gap-3 rounded-calm-sm border border-line bg-raised px-3 py-2 text-xs text-muted"
+            className="mb-4 flex items-center justify-between gap-3 border-l-2 border-sage-400 py-0.5 pl-3 text-xs text-muted"
           >
             <span className="min-w-0 flex-1">
               Following the clock. Showing {PERIOD_LABELS[clockNotice.to]}.
@@ -646,7 +672,7 @@ export function HabitsView({
               <button
                 type="button"
                 onClick={undoClockAdvance}
-                className="silicone rounded-full px-3 py-1 text-xs font-semibold text-sage-600 dark:text-sage-300"
+                className="rounded-full px-2.5 py-1 text-xs font-semibold text-sage-600 transition-colors duration-calm ease-calm hover:bg-sage-500/10 dark:text-sage-300"
               >
                 Undo
               </button>
@@ -655,9 +681,9 @@ export function HabitsView({
                 onClick={() => setClockNotice(null)}
                 aria-label="Dismiss"
                 title="Dismiss"
-                className="silicone flex h-8 w-8 items-center justify-center rounded-full text-muted"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors duration-calm ease-calm hover:text-ink"
               >
-                <X className="h-4 w-4" aria-hidden />
+                <X className="h-3.5 w-3.5" aria-hidden />
               </button>
             </span>
           </motion.div>
@@ -675,65 +701,54 @@ export function HabitsView({
               className="mb-3 flex flex-wrap items-center gap-1.5"
             >
               {chipOptions.map((option) => {
-                const selected = option === filter
                 const stat = option === 'all' ? null : periodStats[option]
-                const allDone = stat ? stat.total > 0 && stat.done === stat.total : false
-                const stateClass = selected
-                  ? 'bg-sage-500 text-white shadow-calm'
-                  : allDone
-                    ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
-                    : 'bg-mint-100 text-sage-700 hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70'
                 return (
-                  <button
+                  <Chip
                     key={option}
-                    type="button"
-                    role="tab"
                     id={`period-filter-${option}`}
-                    aria-selected={selected}
-                    tabIndex={selected ? 0 : -1}
+                    selected={option === filter}
+                    ariaSelected={option === filter}
+                    tabIndex={option === filter ? 0 : -1}
                     onClick={() => setFilter(option)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium
-                                transition-all duration-calm ease-calm ${stateClass}`}
+                    count={
+                      option !== 'all' && stat && stat.total > 0
+                        ? `${stat.done}/${stat.total}`
+                        : undefined
+                    }
                   >
                     {option === 'all' ? 'All day' : PERIOD_LABELS[option]}
-                    {option !== 'all' && stat && stat.total > 0 && (
-                      <span
-                        className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${
-                          selected ? 'bg-white/25' : 'bg-black/5 dark:bg-white/10'
-                        }`}
-                      >
-                        {stat.done}/{stat.total}
-                      </span>
-                    )}
-                  </button>
+                  </Chip>
                 )
               })}
             </div>
           )}
 
-          <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => updateSettings({ hideCompleted: !settings.hideCompleted })}
               aria-pressed={settings.hideCompleted}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium
-                          transition-all duration-calm ease-calm ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium
+                          transition-colors duration-calm ease-calm ${
                             settings.hideCompleted
-                              ? 'border-sage-400 bg-mint-100 text-sage-700 dark:bg-mint-900/40 dark:text-mint-100'
-                              : 'border-line text-muted hover:text-ink'
+                              ? 'bg-sage-500/10 text-sage-700 dark:bg-sage-400/10 dark:text-sage-300'
+                              : 'text-muted hover:text-ink'
                           }`}
             >
               <Check className="h-3.5 w-3.5" aria-hidden />
               Hide done
             </button>
-            <label className="flex items-center gap-2 text-xs text-muted">
+            <label className="flex items-center gap-1.5 text-xs text-muted">
               <span className="sr-only sm:not-sr-only">Sort</span>
               <select
                 aria-label="Sort habits"
                 value={settings.habitSort}
                 onChange={(e) => updateSettings({ habitSort: e.target.value as HabitSort })}
-                className="rounded-calm-sm border border-line bg-surface py-1.5 pl-2 pr-1 text-xs text-ink
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                className="cursor-pointer appearance-none rounded-full border border-line bg-transparent py-1.5 pl-3 pr-6
+                           text-xs font-medium text-muted transition-colors duration-calm ease-calm
+                           hover:border-sage-300 hover:text-ink focus:border-sage-400 focus:outline-none
+                           focus:ring-2 focus:ring-sage-400/30"
+                style={SELECT_CHEVRON}
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -755,102 +770,68 @@ export function HabitsView({
         !error &&
         todayHabits.length > 0 &&
         activeHabits.every((habit) => habit.history.length === 0) && (
-          <p className="mb-3 rounded-calm-sm border border-dashed border-line bg-raised/60 px-3 py-2 text-xs text-muted">
+          <p className="mb-4 border-l-2 border-sage-300 py-0.5 pl-3 text-xs leading-relaxed text-muted">
             Tap the circle when you’ve done it. Miss a day and a gentle grace keeps it going.
           </p>
         )}
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-3" aria-label="Loading habits">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-[76px] animate-pulse rounded-calm bg-mint-100 dark:bg-mint-900/40"
-            />
-          ))}
-        </div>
+        <SkeletonList rows={3} label="Loading habits" />
       ) : error ? (
-        <div className="rounded-calm border border-peach-200 bg-peach-50 p-5 text-peach-700 dark:border-peach-900 dark:bg-peach-900/30 dark:text-peach-200">
-          <p className="font-medium">We couldn’t load your habits.</p>
-          <p className="mt-1 text-sm opacity-80">{error}</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="silicone mt-3 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          title="We couldn’t load your habits."
+          detail={error}
+          onRetry={() => window.location.reload()}
+        />
       ) : activeHabits.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-14 text-center"
-        >
-          <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mint-100 text-sage-500 dark:bg-mint-900/50 dark:text-sage-300">
-            <Sparkles className="h-6 w-6" aria-hidden />
-          </span>
-          <h3 className="font-display text-lg font-semibold text-ink">A fresh start</h3>
-          <p className="mt-1 max-w-xs text-sm text-muted">
-            Add your first habit and begin building a gentle daily rhythm.
-          </p>
-          <p className="mt-1 max-w-xs text-xs text-muted">One habit is enough to begin.</p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => openCreate(periodFromTime(new Date()))}
-              className="silicone-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              Add your first habit
-            </button>
-            <button
-              type="button"
-              onClick={() => setTemplatesOpen(true)}
-              className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-            >
-              <Sparkles className="h-4 w-4" aria-hidden />
-              Browse templates
-            </button>
-          </div>
-        </motion.div>
+        <EmptyState
+          icon={Sparkles}
+          title="A fresh start"
+          description="Add your first habit and begin building a gentle daily rhythm. One habit is enough to begin."
+          actions={
+            <>
+              <Button
+                icon={Plus}
+                variant="primary"
+                onClick={() => openCreate(periodFromTime(new Date()))}
+              >
+                Add your first habit
+              </Button>
+              <Button icon={Sparkles} variant="secondary" onClick={() => setTemplatesOpen(true)}>
+                Browse templates
+              </Button>
+            </>
+          }
+        />
       ) : todayHabits.length === 0 ? (
-        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-          <h3 className="font-display text-base font-semibold text-ink">Nothing scheduled today</h3>
-          <p className="mt-1 max-w-xs text-sm text-muted">
-            Enjoy the space — your habits will appear here on the days they’re due.
-          </p>
-        </div>
+        <EmptyState
+          compact
+          title="Nothing scheduled today"
+          description="Enjoy the space — your habits will appear here on the days they’re due."
+        />
       ) : sectionPeriods.length === 0 ? (
-        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-          <h3 className="font-display text-base font-semibold text-ink">
-            No {PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habits today
-          </h3>
-          <p className="mt-1 max-w-xs text-sm text-muted">
-            Tap “All day” to see everything, or add a habit for this part of the day.
-          </p>
-          <button
-            type="button"
-            onClick={() => openCreate(filter as DayPeriod)}
-            className="silicone mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add a {PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habit
-          </button>
-        </div>
+        <EmptyState
+          compact
+          title={`No ${PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habits today`}
+          description="Tap “All day” to see everything, or add a habit for this part of the day."
+          actions={
+            <Button icon={Plus} variant="secondary" onClick={() => openCreate(filter as DayPeriod)}>
+              Add a {PERIOD_LABELS[filter as DayPeriod].toLowerCase()} habit
+            </Button>
+          }
+        />
       ) : !anyVisible ? (
-        <div className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-12 text-center">
-          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sage-100 text-sage-600 dark:bg-sage-900/50 dark:text-sage-300">
-            <Check className="h-6 w-6" aria-hidden />
-          </span>
-          <h3 className="font-display text-base font-semibold text-ink">All done for now</h3>
-          <p className="mt-1 max-w-xs text-sm text-muted">
-            {filter === 'all'
+        <EmptyState
+          icon={Check}
+          compact
+          title="All done for now"
+          description={
+            filter === 'all'
               ? 'Everything for today is finished. Turn off “Hide done” to see it.'
-              : `Nothing left in ${PERIOD_LABELS[filter as DayPeriod].toLowerCase()}. Turn off “Hide done” to see what you finished.`}
-          </p>
-        </div>
+              : `Nothing left in ${PERIOD_LABELS[filter as DayPeriod].toLowerCase()}. Turn off “Hide done” to see what you finished.`
+          }
+        />
       ) : (
         sectionPeriods.map((period) => {
           const visible = visibleFor(period)
@@ -858,16 +839,14 @@ export function HabitsView({
           return (
             <section key={period} className="mb-6 last:mb-0">
               {showChips && filter === 'all' && (
-                <h3 className="mb-2 px-1 font-display text-sm font-semibold text-muted">
-                  {PERIOD_LABELS[period]}
-                </h3>
+                <SectionHeading variant="label">{PERIOD_LABELS[period]}</SectionHeading>
               )}
               <Reorder.Group
                 as="ul"
                 axis="y"
                 values={visible}
                 onReorder={(next) => handleReorder(next, visible)}
-                className="space-y-3"
+                className=""
               >
                 {visible.map((habit) => (
                   <HabitRow key={habit.id} habit={habit} reorderable={reorderable}>
@@ -909,81 +888,55 @@ export function HabitsView({
       {/* Habits that aren't on today's schedule */}
       {!loading && !error && orderedNotToday.length > 0 && (
         <section className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShowNotToday((v) => !v)}
-            aria-expanded={showNotToday}
-            className="silicone-quiet flex w-full items-center justify-between rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+          <Collapsible
+            title="Not today"
+            count={orderedNotToday.length}
+            icon={CalendarClock}
+            open={showNotToday}
+            onToggle={() => setShowNotToday((v) => !v)}
+            hint="Not on today’s schedule. Tap the menu to edit, or the circle to complete early."
           >
-            <span className="inline-flex items-center gap-2">
-              <CalendarClock className="h-4 w-4" aria-hidden />
-              Not today ({orderedNotToday.length})
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform duration-calm ease-calm ${
-                showNotToday ? 'rotate-180' : ''
-              }`}
-              aria-hidden
-            />
-          </button>
-          {showNotToday && (
-            <>
-              <p className="mt-3 text-xs text-muted">
-                Not on today’s schedule. Tap the menu to edit, or the circle to complete early.
-              </p>
-              <ul className="mt-3 space-y-3">
-                {orderedNotToday.map((habit) => (
-                  <li key={habit.id}>
-                    <HabitCard
-                      habit={habit}
-                      now={now}
-                      weekStart={weekStart}
-                      dueToday={false}
-                      busy={busyId === habit.id}
-                      actionsOpen={selectedId === habit.id}
-                      onToggleActions={() =>
-                        setSelectedId((prev) => (prev === habit.id ? null : habit.id))
-                      }
-                      onToggle={handleToggle}
-                      onEdit={(h) => {
-                        setSelectedId(null)
-                        setDialog({ type: 'edit', habit: h })
-                      }}
-                      onArchive={handleArchive}
-                      onDelete={requestDelete}
-                      onChangePeriod={handleMovePeriod}
-                      pulse={pulses[habit.id] ?? null}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+            <ul>
+              {orderedNotToday.map((habit) => (
+                <li key={habit.id}>
+                  <HabitCard
+                    habit={habit}
+                    now={now}
+                    weekStart={weekStart}
+                    dueToday={false}
+                    busy={busyId === habit.id}
+                    actionsOpen={selectedId === habit.id}
+                    onToggleActions={() =>
+                      setSelectedId((prev) => (prev === habit.id ? null : habit.id))
+                    }
+                    onToggle={handleToggle}
+                    onEdit={(h) => {
+                      setSelectedId(null)
+                      setDialog({ type: 'edit', habit: h })
+                    }}
+                    onArchive={handleArchive}
+                    onDelete={requestDelete}
+                    onChangePeriod={handleMovePeriod}
+                    pulse={pulses[habit.id] ?? null}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Collapsible>
         </section>
       )}
 
       {/* Archived habits */}
       {!loading && archivedHabits.length > 0 && (
-        <section className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShowArchived((v) => !v)}
-            aria-expanded={showArchived}
-            className="silicone-quiet flex w-full items-center justify-between rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+        <section className="mt-4">
+          <Collapsible
+            title="Archived"
+            count={archivedHabits.length}
+            icon={Archive}
+            open={showArchived}
+            onToggle={() => setShowArchived((v) => !v)}
           >
-            <span className="inline-flex items-center gap-2">
-              <Archive className="h-4 w-4" aria-hidden />
-              Archived ({archivedHabits.length})
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform duration-calm ease-calm ${
-                showArchived ? 'rotate-180' : ''
-              }`}
-              aria-hidden
-            />
-          </button>
-          {showArchived && (
-            <ul className="mt-3 space-y-3">
+            <ul>
               {archivedHabits.map((habit) => (
                 <li key={habit.id}>
                   <HabitCard
@@ -1007,13 +960,12 @@ export function HabitsView({
                 </li>
               ))}
             </ul>
-          )}
+          </Collapsible>
         </section>
       )}
 
-      <footer className="mt-10 text-center text-xs text-muted">
-        Tap the circle to complete · use the chips to filter by time of day · press and hold to
-        reorder.
+      <footer className="mt-10 text-center text-xs leading-relaxed text-muted">
+        Tap the circle to complete · press and hold to reorder.
       </footer>
 
       <UndoToast item={undo.item} onUndo={undo.undo} onDismiss={undo.commitNow} />

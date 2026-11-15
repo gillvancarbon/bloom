@@ -28,13 +28,13 @@ export function UndoToast({ item, onUndo, onDismiss }: UndoToastProps) {
               role="status"
               aria-live="polite"
               className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3
-                         rounded-calm border border-line bg-raised px-4 py-3 shadow-calm-lg"
+                         rounded-calm-lg bg-raised px-4 py-3 shadow-calm-lg ring-1 ring-inset ring-line"
             >
               <span className="min-w-0 flex-1 truncate text-sm text-ink">{item.message}</span>
               <button
                 type="button"
                 onClick={onUndo}
-                className="silicone inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-sage-600 dark:text-sage-300"
+                className="silicone inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-sage-600 dark:text-sage-300"
               >
                 <Undo2 className="h-4 w-4" aria-hidden />
                 {item.undoLabel ?? 'Undo'}

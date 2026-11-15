@@ -13,15 +13,22 @@ const tabs: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'todos', label: 'To-do', icon: ListTodo },
 ]
 
+/**
+ * The bottom bar. Two destinations, each a full-height tap target with its own
+ * indicator: a small sage rule that grows in under the label, rather than a
+ * pill filling the whole slot. The bar itself is a quiet surface with a single
+ * hairline, so it frames the screen without competing with the content.
+ */
 export function BottomNav({ tab, onChange }: BottomNavProps) {
   return (
     <nav
       aria-label="Main sections"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-raised shadow-[0_-10px_30px_-18px_rgb(var(--shadow)/0.35)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-line/80 bg-surface/95 backdrop-blur
+                 supports-[backdrop-filter]:bg-surface/80"
     >
       <div
         role="tablist"
-        className="mx-auto grid max-w-2xl grid-cols-2 px-2 pb-[env(safe-area-inset-bottom)]"
+        className="mx-auto grid max-w-2xl grid-cols-2 px-6 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-3"
       >
         {tabs.map(({ id, label, icon: Icon }) => {
           const active = tab === id
@@ -32,22 +39,30 @@ export function BottomNav({ tab, onChange }: BottomNavProps) {
               role="tab"
               aria-selected={active}
               onClick={() => onChange(id)}
-              className="relative flex flex-col items-center justify-center gap-0.5 py-2.5"
+              className="relative flex flex-col items-center gap-1 py-1"
             >
-              {active && (
-                <motion.span
-                  layoutId="bloom-tab-pill"
-                  className="absolute inset-x-3 inset-y-1 rounded-calm-sm bg-mint-100 dark:bg-mint-900/60"
-                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                />
-              )}
+              <Icon
+                className={`h-[22px] w-[22px] transition-colors duration-calm ease-calm ${
+                  active ? 'text-sage-700 dark:text-sage-300' : 'text-muted'
+                }`}
+                strokeWidth={active ? 2.2 : 1.8}
+                aria-hidden
+              />
               <span
-                className={`relative z-10 flex flex-col items-center gap-0.5 text-[11px] font-medium transition-colors duration-calm ease-calm ${
-                  active ? 'text-sage-600 dark:text-sage-300' : 'text-muted'
+                className={`text-[11px] font-medium leading-none transition-colors duration-calm ease-calm ${
+                  active ? 'text-sage-700 dark:text-sage-200' : 'text-muted'
                 }`}
               >
-                <Icon className="h-5 w-5" aria-hidden />
                 {label}
+              </span>
+              <span className="absolute -bottom-1 flex h-1 justify-center">
+                {active && (
+                  <motion.span
+                    layoutId="bloom-tab-rule"
+                    className="h-1 w-6 rounded-full bg-sage-500 dark:bg-sage-300"
+                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                  />
+                )}
               </span>
             </button>
           )

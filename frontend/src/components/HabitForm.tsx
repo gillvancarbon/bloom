@@ -9,6 +9,16 @@ import { formatTime, orderedWeekdays, weekdayNames } from '../lib/format'
 import { REMINDER_OPTIONS, offsetPhrase, reminderClock } from '../lib/reminder'
 import { CATEGORY_SUGGESTIONS } from '../lib/categories'
 import { useSettings } from '../context/SettingsContext'
+import { Segmented } from './Segmented'
+import { Button } from './ui/Button'
+import {
+  FIELD_HINT,
+  FIELD_INPUT,
+  FIELD_INPUT_ICON,
+  FIELD_LABEL,
+  FIELD_SELECT,
+  SELECT_CHEVRON,
+} from './ui/Field'
 
 interface HabitFormProps {
   mode: 'create' | 'edit'
@@ -145,10 +155,10 @@ export function HabitForm({
         />
         <motion.form
           onSubmit={handleSubmit}
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.16, ease: 'easeOut' }}
-          className="relative z-10 max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-calm bg-raised p-6 shadow-calm-lg"
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+          className="relative z-10 max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-calm-lg bg-raised p-6 shadow-calm-lg"
           role="dialog"
           aria-modal="true"
           aria-labelledby="habit-form-title"
@@ -168,14 +178,14 @@ export function HabitForm({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="silicone flex h-9 w-9 items-center justify-center rounded-full text-muted
+              className="silicone -mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted
                          hover:text-ink dark:hover:text-ink"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
 
-          <label htmlFor="habit-name" className="mb-2 block text-sm font-medium text-ink">
+          <label htmlFor="habit-name" className={FIELD_LABEL}>
             Habit name
           </label>
           <input
@@ -188,37 +198,18 @@ export function HabitForm({
             }}
             placeholder="e.g. Read for 10 minutes"
             maxLength={100}
-            className="w-full rounded-calm-sm border border-line bg-surface px-4 py-2.5
-                       text-ink placeholder:text-muted/70
-                       transition-all duration-calm ease-calm
-                       focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+            className={FIELD_INPUT}
           />
 
           {/* Repeats */}
           <div className="mt-4">
-            <span className="mb-2 block text-sm font-medium text-ink">Repeats</span>
-            <div
-              role="radiogroup"
-              aria-label="Repeats"
-              className="flex gap-1 rounded-calm-sm border border-line bg-surface p-1"
-            >
-              {SCHEDULE_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={scheduleType === tab.id}
-                  onClick={() => setScheduleType(tab.id)}
-                  className={`flex-1 rounded-calm-sm px-2 py-1.5 text-sm font-medium transition-all duration-calm ease-calm ${
-                    scheduleType === tab.id
-                      ? 'bg-sage-500 text-white shadow-calm'
-                      : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <span className={FIELD_LABEL}>Repeats</span>
+            <Segmented
+              ariaLabel="Repeats"
+              value={scheduleType}
+              onChange={setScheduleType}
+              options={SCHEDULE_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+            />
 
             {scheduleType === 'weekdays' && (
               <div className="mt-3 flex justify-between gap-1">
@@ -237,10 +228,10 @@ export function HabitForm({
                             : [...prev, dayIndex],
                         )
                       }
-                      className={`h-9 w-9 rounded-full text-xs font-semibold transition-all duration-calm ease-calm ${
+                      className={`h-10 w-10 rounded-full text-xs font-semibold transition-colors duration-calm ease-calm ${
                         on
                           ? 'bg-sage-500 text-white shadow-calm'
-                          : 'border border-line bg-surface text-muted hover:text-ink'
+                          : 'silicone text-muted hover:text-ink'
                       }`}
                     >
                       {names[i].slice(0, 1)}
@@ -253,18 +244,18 @@ export function HabitForm({
             {scheduleType === 'weekly' && (
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-sm text-muted">Times per week</span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     aria-label="Fewer times per week"
                     onClick={() => setPerWeek((v) => Math.max(1, v - 1))}
-                    className="silicone flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold"
+                    className="silicone flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold text-ink"
                   >
                     −
                   </button>
                   <span
                     aria-live="polite"
-                    className="w-6 text-center font-display text-lg font-semibold text-ink"
+                    className="w-6 text-center font-display text-lg font-semibold tabular-nums text-ink"
                   >
                     {perWeek}
                   </span>
@@ -272,7 +263,7 @@ export function HabitForm({
                     type="button"
                     aria-label="More times per week"
                     onClick={() => setPerWeek((v) => Math.min(7, v + 1))}
-                    className="silicone flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold"
+                    className="silicone flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold text-ink"
                   >
                     +
                   </button>
@@ -282,32 +273,17 @@ export function HabitForm({
           </div>
 
           <div className="mt-4">
-            <span className="mb-2 block text-sm font-medium text-ink">Time of day</span>
-            <div
-              role="radiogroup"
-              aria-label="Time of day"
-              className="flex gap-1 rounded-calm-sm border border-line bg-surface p-1"
-            >
-              {DAY_PERIODS.map((period) => (
-                <button
-                  key={period}
-                  type="button"
-                  role="radio"
-                  aria-checked={timeOfDay === period}
-                  onClick={() => setTimeOfDay(period)}
-                  className={`flex-1 rounded-calm-sm px-2 py-1.5 text-sm font-medium transition-all duration-calm ease-calm ${
-                    timeOfDay === period
-                      ? 'bg-sage-500 text-white shadow-calm'
-                      : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  {PERIOD_LABELS[period]}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1.5 text-xs text-muted">
-              Groups this habit under the matching part of your day.
-            </p>
+            <span className={FIELD_LABEL}>Time of day</span>
+            <Segmented
+              ariaLabel="Time of day"
+              value={timeOfDay}
+              onChange={setTimeOfDay}
+              options={DAY_PERIODS.map((period) => ({
+                value: period,
+                label: PERIOD_LABELS[period],
+              }))}
+            />
+            <p className={FIELD_HINT}>Groups this habit under the matching part of your day.</p>
           </div>
 
           <div className="mt-4">
@@ -329,7 +305,7 @@ export function HabitForm({
                 {showMore ? 'Hide options' : 'More options'}
               </span>
             </button>
-            <p id="habit-more-options-help" className="mt-1.5 text-xs text-muted">
+            <p id="habit-more-options-help" className={FIELD_HINT}>
               Reminders, category, colour and deadline.
             </p>
           </div>
@@ -337,7 +313,7 @@ export function HabitForm({
           {showMore && (
             <div id="habit-more-options">
               <div className="mt-4">
-                <span className="mb-2 block text-sm font-medium text-ink">Colour</span>
+                <span className={FIELD_LABEL}>Colour</span>
                 <div className="flex gap-2">
                   {tones.map((tone, index) => (
                     <button
@@ -346,7 +322,7 @@ export function HabitForm({
                       onClick={() => setColorIndex(index)}
                       aria-label={tone.name}
                       aria-pressed={colorIndex === index}
-                      className={`silicone-swatch h-9 w-9 rounded-full ${tone.className} ${
+                      className={`silicone-swatch h-10 w-10 rounded-full ${tone.className} ${
                         colorIndex === index
                           ? 'outline outline-2 outline-offset-2 outline-sage-400'
                           : ''
@@ -357,7 +333,7 @@ export function HabitForm({
               </div>
 
               <div className="mt-4">
-                <label htmlFor="habit-deadline" className="mb-2 block text-sm font-medium text-ink">
+                <label htmlFor="habit-deadline" className={FIELD_LABEL}>
                   Daily deadline
                 </label>
                 <div className="relative">
@@ -370,12 +346,10 @@ export function HabitForm({
                     type="time"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
-                           text-ink transition-all duration-calm ease-calm
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                    className={`${FIELD_INPUT_ICON} tabular-nums`}
                   />
                 </div>
-                <p className="mt-1.5 text-xs text-muted">
+                <p className={FIELD_HINT}>
                   The time you aim to finish by. A countdown on the card warns you as it approaches.
                 </p>
                 {timeOfDay !== 'anytime' && periodFromDeadline(deadline) !== timeOfDay && (
@@ -391,7 +365,7 @@ export function HabitForm({
               </div>
 
               <div className="mt-4">
-                <label htmlFor="habit-category" className="mb-2 block text-sm font-medium text-ink">
+                <label htmlFor="habit-category" className={FIELD_LABEL}>
                   Category
                 </label>
                 <div className="relative">
@@ -406,9 +380,7 @@ export function HabitForm({
                     onChange={(e) => setCategory(e.target.value)}
                     placeholder="e.g. Health"
                     maxLength={40}
-                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
-                           text-ink placeholder:text-muted/70 transition-all duration-calm ease-calm
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                    className={FIELD_INPUT_ICON}
                   />
                   <datalist id="habit-category-options">
                     {CATEGORY_SUGGESTIONS.map((c) => (
@@ -419,7 +391,7 @@ export function HabitForm({
               </div>
 
               <div className="mt-4">
-                <label htmlFor="habit-reminder" className="mb-2 block text-sm font-medium text-ink">
+                <label htmlFor="habit-reminder" className={FIELD_LABEL}>
                   Reminder <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <div className="relative">
@@ -433,9 +405,8 @@ export function HabitForm({
                     onChange={(e) =>
                       setReminderOffset(e.target.value === '' ? null : Number(e.target.value))
                     }
-                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
-                           text-ink transition-all duration-calm ease-calm
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                    className={`${FIELD_SELECT} pl-9`}
+                    style={SELECT_CHEVRON}
                   >
                     {REMINDER_OPTIONS.map((option) => (
                       <option key={option.value ?? 'none'} value={option.value ?? ''}>
@@ -444,7 +415,7 @@ export function HabitForm({
                     ))}
                   </select>
                 </div>
-                <p className="mt-1.5 text-xs text-muted">
+                <p className={FIELD_HINT}>
                   {!settings.notificationsEnabled
                     ? 'Reminders are off — turn them on in Settings.'
                     : reminderOffset === null
@@ -464,45 +435,34 @@ export function HabitForm({
           )}
 
           {error && (
-            <p className="mt-4 rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+            <p
+              role="alert"
+              className="mt-5 border-l-2 border-peach-400 py-0.5 pl-3 text-sm text-peach-700 dark:text-peach-300"
+            >
               {error}
             </p>
           )}
 
-          <div className="mt-6 flex items-center justify-between gap-2">
+          <div className="mt-6 flex items-center justify-between gap-2 border-t border-line/70 pt-5">
             {mode === 'edit' && onArchive ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                className="text-muted hover:text-ink"
+                icon={archived ? ArchiveRestore : Archive}
                 onClick={onArchive}
-                className="silicone-quiet inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted hover:text-ink"
               >
-                {archived ? (
-                  <ArchiveRestore className="h-4 w-4" aria-hidden />
-                ) : (
-                  <Archive className="h-4 w-4" aria-hidden />
-                )}
-                {archived ? 'Restore habit' : 'Archive habit'}
-              </button>
+                {archived ? 'Restore' : 'Archive'}
+              </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium
-                           hover:text-ink dark:hover:text-ink"
-              >
+              <Button variant="ghost" className="hover:text-ink" onClick={onClose}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="silicone-primary rounded-full px-5 py-2 text-sm font-semibold
-                           disabled:opacity-60"
-              >
+              </Button>
+              <Button type="submit" variant="primary" disabled={saving}>
                 {saving ? 'Saving…' : mode === 'create' ? 'Create habit' : 'Save changes'}
-              </button>
+              </Button>
             </div>
           </div>
         </motion.form>

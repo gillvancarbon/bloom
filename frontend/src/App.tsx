@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import { BottomNav, type Tab } from './components/BottomNav'
@@ -102,47 +102,52 @@ export default function App() {
   }, [ready, settings])
 
   return (
-    <div className="bg-aura relative min-h-[100dvh]">
-      <motion.div
-        key={tab}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-        className="relative z-10"
-      >
-        {tab === 'habits' ? (
-          <HabitsView
-            onOpenSettings={() => setSettingsOpen(true)}
-            autoOpenTemplates={openTemplates}
-            onTemplatesHandled={templatesHandled}
-            autoOpenOverlay={pendingOverlay}
-            onOverlayHandled={() => setPendingOverlay(null)}
-          />
-        ) : (
-          <TodosView
-            onOpenSettings={() => setSettingsOpen(true)}
-            onOpenCalendar={() => {
-              setTab('habits')
-              setPendingOverlay('calendar')
-            }}
-            onOpenInsights={() => {
-              setTab('habits')
-              setPendingOverlay('insights')
-            }}
-          />
-        )}
-      </motion.div>
+    // `reducedMotion="user"` honours the OS preference for every framer
+    // animation in the app, not just the CSS ones the media query in index.css
+    // neutralises.
+    <MotionConfig reducedMotion="user">
+      <div className="bg-aura relative min-h-[100dvh]">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+          className="relative z-10"
+        >
+          {tab === 'habits' ? (
+            <HabitsView
+              onOpenSettings={() => setSettingsOpen(true)}
+              autoOpenTemplates={openTemplates}
+              onTemplatesHandled={templatesHandled}
+              autoOpenOverlay={pendingOverlay}
+              onOverlayHandled={() => setPendingOverlay(null)}
+            />
+          ) : (
+            <TodosView
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenCalendar={() => {
+                setTab('habits')
+                setPendingOverlay('calendar')
+              }}
+              onOpenInsights={() => {
+                setTab('habits')
+                setPendingOverlay('insights')
+              }}
+            />
+          )}
+        </motion.div>
 
-      <BottomNav tab={tab} onChange={changeTab} />
+        <BottomNav tab={tab} onChange={changeTab} />
 
-      {/* Rendered directly (not via AnimatePresence): the dialog has no exit
+        {/* Rendered directly (not via AnimatePresence): the dialog has no exit
           animation, and AnimatePresence could keep it mounted after a close. */}
-      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
 
-      <AnimatePresence>{showTerms && <TermsGate />}</AnimatePresence>
-      <AnimatePresence>{showIntro && <IntroFlow onFinish={finishIntro} />}</AnimatePresence>
+        <AnimatePresence>{showTerms && <TermsGate />}</AnimatePresence>
+        <AnimatePresence>{showIntro && <IntroFlow onFinish={finishIntro} />}</AnimatePresence>
 
-      <ToastHost />
-    </div>
+        <ToastHost />
+      </div>
+    </MotionConfig>
   )
 }

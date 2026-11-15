@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Flame, Layers, Leaf, Sparkles } from 'lucide-react'
 import { Portal } from './Portal'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { Button } from './ui/Button'
 
 interface IntroFlowProps {
   /** Called once the tour ends. `openTemplates` asks for the habit templates. */
@@ -95,13 +96,13 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
               <span className="font-display text-base font-semibold text-ink">Bloom</span>
             </div>
             {!isLast && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                className="text-muted hover:text-ink"
                 onClick={() => onFinish(false)}
-                className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
               >
                 Skip
-              </button>
+              </Button>
             )}
           </header>
 
@@ -118,7 +119,7 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
                 transition={{ duration: 0.26, ease: [0.4, 0, 0.2, 1] }}
                 className="w-full text-center"
               >
-                <span className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-mint-100 text-sage-500 shadow-calm dark:bg-mint-900/50 dark:text-sage-300">
+                <span className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-mint-100 text-sage-500 dark:bg-mint-900/50 dark:text-sage-300">
                   <slide.Icon className="h-11 w-11" aria-hidden />
                 </span>
                 <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
@@ -149,31 +150,27 @@ export function IntroFlow({ onFinish }: IntroFlowProps) {
                 <p className="mb-1 text-center text-xs leading-relaxed text-muted">
                   Start with one or two. You can always add more.
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  icon={Sparkles}
+                  className="w-full py-3"
                   onClick={() => onFinish(true)}
-                  className="silicone-primary inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-semibold"
                 >
-                  <Sparkles className="h-4 w-4" aria-hidden />
                   Pick starter habits
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full py-3 text-muted hover:text-ink"
                   onClick={() => onFinish(false)}
-                  className="silicone-quiet rounded-full px-5 py-3 text-sm font-medium text-muted hover:text-ink"
                 >
                   Explore on my own
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => go(1)}
-                className="silicone-primary inline-flex w-full items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-semibold"
-              >
+              <Button variant="primary" className="w-full py-3" onClick={() => go(1)}>
                 Next
                 <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
+              </Button>
             )}
           </footer>
         </div>

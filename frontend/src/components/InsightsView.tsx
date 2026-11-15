@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Portal } from './Portal'
 import { Stat } from './Stat'
-import { CalendarDays, ChevronDown, ChevronLeft, TrendingUp } from 'lucide-react'
+import { Collapsible } from './ui/Collapsible'
+import { SectionHeading } from './ui/SectionHeading'
+import { ChevronLeft } from 'lucide-react'
 import type { Habit, WeekStart } from '../types'
 import {
   insightsSummary,
@@ -70,8 +72,8 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
               type="button"
               onClick={onClose}
               aria-label="Close insights"
-              className="silicone mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+              className="silicone -ml-1 mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
+                         hover:text-ink dark:hover:text-ink"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
@@ -89,14 +91,11 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
           {hasRecentActivity ? (
             <>
               {/* Consistency — rates, framed as a rhythm rather than a grade */}
-              <section className="mb-3" aria-labelledby="insights-consistency">
-                <h2
-                  id="insights-consistency"
-                  className="mb-2 font-display text-sm font-semibold text-ink"
-                >
+              <section className="mb-6" aria-labelledby="insights-consistency">
+                <SectionHeading id="insights-consistency" variant="label">
                   Consistency
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
+                </SectionHeading>
+                <div className="grid grid-cols-2 gap-6">
                   <Stat
                     label="This week"
                     value={summary.weekRate > 0 ? pct(summary.weekRate) : '—'}
@@ -111,53 +110,44 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
               </section>
 
               {/* Momentum — gentle streaks, no perfect/failed framing */}
-              <section className="mb-5" aria-labelledby="insights-momentum">
-                <h2
-                  id="insights-momentum"
-                  className="mb-2 font-display text-sm font-semibold text-ink"
-                >
+              <section className="mb-6" aria-labelledby="insights-momentum">
+                <SectionHeading id="insights-momentum" variant="label">
                   Momentum
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
+                </SectionHeading>
+                <div className="grid grid-cols-2 gap-6">
                   <Stat label="Full days" value={summary.currentPerfectStreak} hint="in a row" />
                   <Stat label="Best streak" value={summary.bestStreak} hint="days" />
                 </div>
               </section>
 
               {/* Weekly review */}
-              <section className="mb-5 rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-                <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-ink">
-                  <CalendarDays className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
-                  This week
-                </h2>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="font-display text-lg font-semibold text-ink">
-                      {review.activeDays}/{review.days}
-                    </p>
-                    <p className="text-xs text-muted">active days</p>
-                  </div>
-                  <div>
-                    <p className="font-display text-lg font-semibold text-ink">
-                      {review.completions}
-                    </p>
-                    <p className="text-xs text-muted">completions</p>
-                  </div>
-                  <div>
-                    <p className="font-display text-lg font-semibold text-ink">
-                      {review.bestDay?.done ?? 0}
-                    </p>
-                    <p className="text-xs text-muted">best day</p>
-                  </div>
+              <section className="mb-6 border-t border-line/70 pt-5">
+                <SectionHeading hint="Monday through today.">This week</SectionHeading>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { value: `${review.activeDays}/${review.days}`, label: 'active days' },
+                    { value: review.completions, label: 'completions' },
+                    { value: review.bestDay?.done ?? 0, label: 'best day' },
+                  ].map((fact) => (
+                    <div
+                      key={fact.label}
+                      className="border-l-2 border-sage-200 pl-3 dark:border-sage-800"
+                    >
+                      <p className="font-display text-xl font-semibold tabular-nums text-ink">
+                        {fact.value}
+                      </p>
+                      <p className="text-xs text-muted">{fact.label}</p>
+                    </div>
+                  ))}
                 </div>
               </section>
             </>
           ) : (
-            <section className="mb-5 rounded-calm border border-line bg-raised p-5 text-center shadow-calm">
+            <section className="mb-6 border-t border-line/70 pt-5">
               <p className="font-display text-sm font-semibold text-ink">
                 Your trends will appear here
               </p>
-              <p className="mt-1 text-xs text-muted">
+              <p className="mt-1 text-xs leading-relaxed text-muted">
                 {live.length > 0
                   ? 'Nothing logged in the last 30 days. Consistency and momentum build one small step at a time.'
                   : 'Add a habit to start seeing your consistency and momentum.'}
@@ -166,14 +156,10 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
           )}
 
           {/* 30-day trend */}
-          <section className="rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-            <h2 className="mb-1 flex items-center gap-2 font-display text-sm font-semibold text-ink">
-              <TrendingUp className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
+          <section className="border-t border-line/70 pt-5">
+            <SectionHeading hint="Each bar shows how much of that day was logged.">
               Last 30 days
-            </h2>
-            <p className="mb-3 text-xs text-muted">
-              Each bar shows how much of that day was logged.
-            </p>
+            </SectionHeading>
             <p className="sr-only">
               Last 30 days: {monthCounts.full} day{monthCounts.full === 1 ? '' : 's'} with
               everything done, {monthCounts.partial} with some done, {monthCounts.quiet} with
@@ -183,7 +169,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
             <div className="flex h-24 items-end gap-[3px]" aria-hidden>
               {summary.points.map((point) => {
                 const ratio = point.total > 0 ? point.done / point.total : 0
-                const height = Math.max(3, Math.round(ratio * 88))
+                const height = Math.max(3, Math.round(ratio * 96))
                 const tone =
                   point.total === 0
                     ? 'bg-cal-none'
@@ -210,9 +196,9 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
 
           {/* Per-habit list */}
           {live.length > 0 && (
-            <section className="mt-5 rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-              <h2 className="mb-3 font-display text-sm font-semibold text-ink">Your habits</h2>
-              <ul className="space-y-1">
+            <section className="mt-6 border-t border-line/70 pt-5">
+              <SectionHeading>Your habits</SectionHeading>
+              <ul>
                 {live.map((habit) => {
                   const best = bestStreak(habit, weekStart)
                   const done = habit.history.length
@@ -222,67 +208,44 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
                   const badges = milestones(habit, weekStart)
                   const reached = badges.filter((badge) => badge.reached).length
                   return (
-                    <li key={habit.id}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenId(open ? null : habit.id)}
-                        aria-expanded={open}
-                        className="flex w-full items-center justify-between gap-3 rounded-calm-sm px-1 py-2 text-left"
+                    <li key={habit.id} className="border-b border-line/70 last:border-b-0">
+                      <Collapsible
+                        title={habit.name}
+                        open={open}
+                        onToggle={() => setOpenId(open ? null : habit.id)}
+                        subtitle={`${habit.category} · ${scheduleLabel(habit.schedule)} · ${reached}/${badges.length} milestones · ${done} done · best streak ${best}`}
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-ink">{habit.name}</p>
-                          <p className="text-xs text-muted">
-                            {habit.category} · {scheduleLabel(habit.schedule)} · {reached}/
-                            {badges.length} milestones
-                          </p>
+                        <div className="flex gap-[3px]" aria-hidden>
+                          {recent.map((day) => (
+                            <span
+                              key={day.iso}
+                              title={day.iso}
+                              className={`h-3.5 flex-1 rounded-sm ${
+                                day.done ? 'bg-cal-full' : 'bg-mint-100 dark:bg-mint-900/40'
+                              }`}
+                            />
+                          ))}
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-ink">{done}</p>
-                            <p className="text-xs text-muted">total · best {best}</p>
-                          </div>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted transition-transform duration-calm ease-calm ${
-                              open ? 'rotate-180' : ''
-                            }`}
-                            aria-hidden
-                          />
+                        <p className="sr-only">
+                          {habit.name}, last 30 days: {recentDone} day
+                          {recentDone === 1 ? '' : 's'} logged.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {badges.map((badge) => (
+                            <span
+                              key={badge.id}
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                badge.reached
+                                  ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
+                                  : 'bg-mint-100 text-muted dark:bg-mint-900/40'
+                              }`}
+                            >
+                              {badge.reached ? '★ ' : ''}
+                              {badge.label}
+                            </span>
+                          ))}
                         </div>
-                      </button>
-                      {open && (
-                        <div className="px-1 pb-3 pt-1">
-                          <div className="flex gap-[3px]" aria-hidden>
-                            {recent.map((day) => (
-                              <span
-                                key={day.iso}
-                                title={day.iso}
-                                className={`h-3.5 flex-1 rounded-sm ${
-                                  day.done ? 'bg-cal-full' : 'bg-mint-100 dark:bg-mint-900/40'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <p className="sr-only">
-                            {habit.name}, last 30 days: {recentDone} day
-                            {recentDone === 1 ? '' : 's'} logged.
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {badges.map((badge) => (
-                              <span
-                                key={badge.id}
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  badge.reached
-                                    ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200'
-                                    : 'bg-mint-100 text-muted dark:bg-mint-900/40'
-                                }`}
-                              >
-                                {badge.reached ? '★ ' : ''}
-                                {badge.label}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      </Collapsible>
                     </li>
                   )
                 })}
@@ -290,7 +253,7 @@ export function InsightsView({ habits, historyStart, weekStart, now, onClose }: 
             </section>
           )}
 
-          <p className="mt-5 pb-4 text-center text-xs text-muted">
+          <p className="mt-6 pb-4 text-center text-xs text-muted">
             {summary.totalCompletions} completions recorded in total.
           </p>
         </motion.section>

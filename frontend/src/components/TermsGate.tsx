@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Leaf, ScrollText, ShieldCheck } from 'lucide-react'
 import { Portal } from './Portal'
+import { Button } from './ui/Button'
 import { useSettings } from '../context/SettingsContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { exitApp } from '../lib/appControl'
@@ -141,7 +142,7 @@ export function TermsGate() {
             onClick={() => setShowFullTerms((open) => !open)}
             aria-expanded={showFullTerms}
             aria-controls="terms-full"
-            className="silicone-quiet mt-3 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-2 text-sm font-semibold text-sage-600 hover:text-sage-700 dark:text-sage-300 dark:hover:text-mint-100"
+            className="silicone-quiet mt-3 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-2 text-sm font-semibold text-sage-600 hover:text-ink dark:text-sage-300 dark:hover:text-sage-100"
           >
             <ScrollText className="h-4 w-4" aria-hidden />
             {showFullTerms ? 'Hide the full terms' : 'Read the full terms'}
@@ -150,7 +151,7 @@ export function TermsGate() {
           <div
             id="terms-full"
             hidden={!showFullTerms}
-            className="mt-3 space-y-4 rounded-calm border border-line bg-raised p-4 shadow-calm"
+            className="mt-3 space-y-4 border-l-2 border-line pl-4"
           >
             {TERMS_SECTIONS.map((section) => (
               <section key={section.title}>
@@ -175,7 +176,7 @@ export function TermsGate() {
           </a>
 
           <div className="mt-4 pb-8">
-            <label className="flex cursor-pointer items-start gap-3 rounded-calm border border-line bg-surface p-3.5">
+            <label className="flex cursor-pointer items-start gap-3 rounded-calm border border-line/70 bg-surface p-3.5 transition-colors duration-calm ease-calm hover:border-sage-300">
               <input
                 type="checkbox"
                 checked={agreed}
@@ -197,22 +198,21 @@ export function TermsGate() {
               </span>
             </label>
 
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              className="mt-3 w-full py-3"
               onClick={accept}
               disabled={!agreed}
-              className="silicone-primary mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-5 py-3
-                         text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               Agree and continue
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              className="mt-2 w-full py-3 text-muted hover:text-ink"
               onClick={() => void decline()}
-              className="silicone-quiet mt-2 w-full rounded-full px-5 py-3 text-sm font-medium text-muted hover:text-ink"
             >
               Decline and close
-            </button>
+            </Button>
             <p className="mt-3 text-center text-xs text-muted">
               You must agree to use Bloom. Declining closes the app.
             </p>

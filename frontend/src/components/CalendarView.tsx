@@ -32,7 +32,9 @@ const BAR_STYLE: Record<DayStatus, string> = {
 
 /* The day number stays neutral so the dots are what catch the eye. */
 const DAY_TEXT: Record<DayStatus, string> = {
-  future: 'text-muted/40',
+  // A future day recedes by tone, not by opacity: dimming `muted` would take
+  // the small day number under AA.
+  future: 'text-muted',
   none: 'text-muted',
   empty: 'text-ink',
   partial: 'text-ink',
@@ -145,8 +147,8 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
               onClick={onClose}
               aria-label="Close calendar"
               title="Close calendar"
-              className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+              className="silicone -mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
+                         hover:text-ink dark:hover:text-ink"
             >
               <X className="h-5 w-5" aria-hidden />
             </button>
@@ -159,7 +161,7 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
               onClick={() => go(-1)}
               aria-label="Previous month"
               className="silicone flex h-9 w-9 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+                         hover:text-ink"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
@@ -186,7 +188,7 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
               disabled={atCurrentMonth}
               aria-label="Next month"
               className="silicone flex h-9 w-9 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300
+                         hover:text-ink
                          disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronRight className="h-5 w-5" aria-hidden />
@@ -198,7 +200,7 @@ export function CalendarView({ habits, historyStart, weekStart, now, onClose }: 
             {weekdayInitials(weekStart).map((day, i) => (
               <div
                 key={i}
-                className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted sm:text-xs"
+                className="py-1 text-center text-[10px] font-medium uppercase tracking-[0.09em] text-muted sm:text-xs"
               >
                 {day}
               </div>

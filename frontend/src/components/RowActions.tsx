@@ -14,17 +14,20 @@ interface RowActionsProps {
   onDelete: () => void
 }
 
-/** A single action button is a 44px square, clearing the touch-target minimum. */
-const BUTTON = 44
+/** A single action button is a 40px square, clearing the touch-target minimum. */
+const BUTTON = 40
 /** Breathing room kept inside the clipping viewport so the buttons' soft
  *  neomorphic shadows are never cut off at the edges. */
 const PAD = 8
 
-/** Three 44px buttons + two 8px gaps, or two buttons when archive is absent. */
-const openWidth = (hasArchive: boolean) => (hasArchive ? 148 : 96)
+/** Three 40px buttons + two 6px gaps, or two buttons when archive is absent. */
+const openWidth = (hasArchive: boolean) => (hasArchive ? 132 : 86)
 /** The animated viewport width: the button row plus equal padding each side. */
 const viewportWidth = (open: boolean, hasArchive: boolean) =>
   (open ? openWidth(hasArchive) : BUTTON) + PAD * 2
+
+const ACTION_BUTTON =
+  'silicone-quiet flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-calm ease-calm'
 
 /** The overflow menu → edit + archive + delete interaction shared by cards. */
 export function RowActions({
@@ -40,7 +43,7 @@ export function RowActions({
   const hasArchive = typeof onArchive === 'function'
   return (
     <motion.div
-      className="relative flex shrink-0 items-center justify-end overflow-hidden"
+      className="relative flex shrink-0 items-center justify-end self-center overflow-hidden"
       style={{ height: BUTTON + PAD * 2 }}
       data-actions-for={id}
       animate={{ width: viewportWidth(open, hasArchive) }}
@@ -56,7 +59,8 @@ export function RowActions({
             aria-expanded={false}
             title="More"
             style={{ right: PAD }}
-            className="silicone absolute flex h-11 w-11 items-center justify-center rounded-full"
+            className="silicone-quiet absolute flex h-10 w-10 items-center justify-center rounded-full text-muted
+                       transition-colors duration-calm ease-calm hover:text-ink"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -68,18 +72,14 @@ export function RowActions({
               animate={{ rotate: 0, scale: 1 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             >
-              <MoreHorizontal
-                className="h-[24px] w-[24px] text-muted"
-                strokeWidth={2}
-                aria-hidden
-              />
+              <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
             </motion.span>
           </motion.button>
         ) : (
           <motion.div
             key="actions"
             style={{ right: PAD }}
-            className="absolute flex items-center gap-2"
+            className="absolute flex items-center gap-1.5"
             initial={{ opacity: 0, x: 10, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 10, scale: 0.9 }}
@@ -90,9 +90,9 @@ export function RowActions({
               onClick={onEdit}
               aria-label={`Edit ${label}`}
               title="Edit"
-              className="silicone flex h-11 w-11 items-center justify-center rounded-full"
+              className={`${ACTION_BUTTON} hover:text-ink`}
             >
-              <Pencil className="h-5 w-5 text-muted" aria-hidden />
+              <Pencil className="h-[18px] w-[18px]" aria-hidden />
             </button>
             {hasArchive && (
               <button
@@ -100,15 +100,14 @@ export function RowActions({
                 onClick={onArchive}
                 aria-label={`${archived ? 'Restore' : 'Archive'} ${label}`}
                 title={archived ? 'Restore' : 'Archive'}
-                className="silicone flex h-11 w-11 items-center justify-center rounded-full"
+                className={`${ACTION_BUTTON} ${
+                  archived ? 'text-sage-600 dark:text-sage-300' : 'hover:text-ink'
+                }`}
               >
                 {archived ? (
-                  <ArchiveRestore
-                    className="h-5 w-5 text-sage-600 dark:text-sage-300"
-                    aria-hidden
-                  />
+                  <ArchiveRestore className="h-[18px] w-[18px]" aria-hidden />
                 ) : (
-                  <Archive className="h-5 w-5 text-muted" aria-hidden />
+                  <Archive className="h-[18px] w-[18px]" aria-hidden />
                 )}
               </button>
             )}
@@ -117,9 +116,9 @@ export function RowActions({
               onClick={onDelete}
               aria-label={`Delete ${label}`}
               title="Delete"
-              className="silicone flex h-11 w-11 items-center justify-center rounded-full"
+              className={`${ACTION_BUTTON} text-peach-600 hover:text-peach-700 dark:text-peach-300`}
             >
-              <Trash2 className="h-5 w-5 text-peach-600 dark:text-peach-300" aria-hidden />
+              <Trash2 className="h-[18px] w-[18px]" aria-hidden />
             </button>
           </motion.div>
         )}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 
 interface SegmentedOption<T extends string | number> {
   value: T
@@ -12,7 +13,12 @@ interface SegmentedProps<T extends string | number> {
   ariaLabel: string
 }
 
-/** A calm, accessible segmented control used across Settings and forms. */
+/**
+ * A calm, accessible segmented control used across Settings and forms. The
+ * selected option is marked by a soft sage pill that glides between slots,
+ * rather than a hard-filled button, so the control reads as one surface with a
+ * moving highlight.
+ */
 export function Segmented<T extends string | number>({
   value,
   options,
@@ -23,7 +29,7 @@ export function Segmented<T extends string | number>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="flex gap-1 rounded-calm-sm border border-line bg-surface p-1"
+      className="flex gap-0.5 rounded-calm-sm bg-mint-100/70 p-1 dark:bg-mint-900/40"
     >
       {options.map((option) => {
         const selected = option.value === value
@@ -34,11 +40,22 @@ export function Segmented<T extends string | number>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(option.value)}
-            className={`flex-1 rounded-calm-sm px-3 py-1.5 text-sm font-medium transition-all duration-calm ease-calm ${
-              selected ? 'bg-sage-500 text-white shadow-calm' : 'text-muted hover:text-ink'
-            }`}
+            className="relative flex-1 rounded-[0.6rem] px-2.5 py-1.5 text-sm font-medium transition-colors duration-calm ease-calm"
           >
-            {option.label}
+            {selected && (
+              <motion.span
+                layoutId={`segmented-${ariaLabel}`}
+                className="absolute inset-0 rounded-[0.6rem] bg-raised shadow-calm"
+                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              />
+            )}
+            <span
+              className={`relative z-10 ${
+                selected ? 'font-semibold text-sage-700 dark:text-sage-200' : 'text-muted'
+              }`}
+            >
+              {option.label}
+            </span>
           </button>
         )
       })}

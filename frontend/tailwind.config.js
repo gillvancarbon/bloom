@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* ── Hue 1 · Sage (primary): growth, consistency ── */
+        /* ── Hue 1 · Sage (primary): growth, consistency, nature ── */
         sage: {
           50: '#eef5ee',
           100: '#d9e9da',
@@ -44,14 +44,27 @@ export default {
           800: '#3b5140',
           900: '#2d4a33',
         },
-        /* ── Semantic tokens (drive light/dark through CSS vars) ── */
+        /* ── Hue 4 · Frost (reserved): streak freezes, cool and icy. Matches
+              the `.silicone-frost` gradients in index.css. ── */
+        frost: {
+          50: '#eef7fd',
+          100: '#d7ecfa',
+          300: '#8cc6ee',
+          500: '#3f7fc4',
+          700: '#2f6aa8',
+          900: '#1d3f63',
+        },
+        /* ── Semantic tokens (tinted neutrals; drive light/dark via CSS
+              vars). `muted` is tuned to just clear AA on every surface, so
+              dimming it with an opacity modifier breaks contrast — express
+              secondary emphasis with size or weight instead. ── */
         page: 'rgb(var(--page) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
         raised: 'rgb(var(--raised) / <alpha-value>)',
         ink: 'rgb(var(--ink) / <alpha-value>)',
         muted: 'rgb(var(--muted) / <alpha-value>)',
         line: 'rgb(var(--line) / <alpha-value>)',
-        /* ── Calendar heat-map (semantic, not part of the 3 main hues) ── */
+        /* ── Calendar status ramp ── */
         cal: {
           none: 'rgb(var(--cal-none) / <alpha-value>)',
           empty: 'rgb(var(--cal-empty) / <alpha-value>)',
@@ -92,6 +105,7 @@ export default {
       animation: {
         'fade-in': 'fade-in 0.25s ease-out both',
         'pop-in': 'pop-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) both',
+        shimmer: 'shimmer 2s linear infinite',
       },
     },
   },

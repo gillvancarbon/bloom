@@ -47,10 +47,24 @@ interface HabitCardProps {
   pulse?: { kind: 'habit' | 'milestone'; seq: number } | null
 }
 
-const palette = [
-  'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-200',
-  'bg-peach-100 text-peach-700 dark:bg-peach-900/40 dark:text-peach-200',
-  'bg-mint-200 text-mint-700 dark:bg-mint-800/60 dark:text-mint-100',
+/**
+ * A habit's accent, derived from its stored colour index. Kept to three tones
+ * that all sit inside the botanical palette, so a long list stays calm.
+ * `ring` marks the completion control, `tint` the small period label.
+ */
+const ACCENTS = [
+  {
+    ring: 'border-sage-400 text-sage-600 dark:border-sage-500 dark:text-sage-300',
+    tint: 'bg-sage-500/10 text-sage-700 dark:bg-sage-400/10 dark:text-sage-300',
+  },
+  {
+    ring: 'border-peach-400 text-peach-600 dark:border-peach-500 dark:text-peach-300',
+    tint: 'bg-peach-500/10 text-peach-700 dark:bg-peach-400/10 dark:text-peach-300',
+  },
+  {
+    ring: 'border-mint-500 text-mint-700 dark:border-mint-500 dark:text-mint-200',
+    tint: 'bg-mint-500/15 text-mint-700 dark:bg-mint-500/15 dark:text-mint-200',
+  },
 ]
 
 const PERIOD_ICONS = { morning: Sunrise, afternoon: Sun, evening: Moon, anytime: Clock }
@@ -138,7 +152,7 @@ export function HabitCard({
   }, [pulse])
 
   const complete = isCompleteForPeriod(habit, now, weekStart)
-  const tone = palette[habit.colorIndex % palette.length]
+  const accent = ACCENTS[habit.colorIndex % ACCENTS.length]
 
   const streak = streakState(habit, now, settings.weekStart)
   const streakDisplay = settings.streakDisplay
@@ -156,6 +170,7 @@ export function HabitCard({
     level: 'calm' as const,
     text: `by ${formatTime(habit.deadline, settings.timeFormat)}`,
   }
+  const overdue = !complete && dueToday && rawDeadline.level === 'overdue'
   const deadline = complete
     ? { level: 'calm' as const, text: 'Done' }
     : !dueToday
@@ -169,26 +184,26 @@ export function HabitCard({
   const flameSize =
     streak.level === 'risk' ? 'h-3 w-3' : streak.level === 'broken' ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'
 
-  const streakChip =
+  const streakTone =
     streak.level === 'risk'
-      ? 'bg-peach-100 text-peach-700 dark:bg-peach-900/50 dark:text-peach-200'
+      ? 'text-peach-600 dark:text-peach-300'
       : streak.level === 'broken'
-        ? 'bg-mint-100 text-muted dark:bg-mint-900/60'
-        : tone
+        ? 'text-muted'
+        : 'text-peach-600 dark:text-peach-300'
 
   const streakLabel =
     streak.level === 'none'
       ? 'No streak yet'
       : streak.level === 'broken'
         ? 'Start again'
-        : `${streak.count} day${streak.count === 1 ? '' : 's'} streak`
+        : `${streak.count} day${streak.count === 1 ? '' : 's'}`
 
   const deadlineClass =
     deadline.level === 'near'
       ? 'text-peach-700 dark:text-peach-300'
       : deadline.level === 'overdue'
-        ? 'font-medium text-amber-700 dark:text-amber-300'
-        : 'text-muted dark:text-ink/80'
+        ? 'font-semibold text-peach-700 dark:text-peach-300'
+        : 'text-muted'
 
   const progress = scheduleProgress(habit, now, weekStart)
   const showProgress = habit.schedule.type === 'weekly'
@@ -203,17 +218,13 @@ export function HabitCard({
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={
         pulsing
-          ? {
-              opacity: 1,
-              y: 0,
-              scale: pulse?.kind === 'milestone' ? [1, 1.04, 1] : [1, 1.02, 1],
-            }
+          ? { opacity: 1, y: 0, scale: pulse?.kind === 'milestone' ? [1, 1.035, 1] : [1, 1.018, 1] }
           : { opacity: 1, y: 0, scale: 1 }
       }
-      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.2 } }}
       transition={
         pulsing
           ? {
@@ -221,148 +232,149 @@ export function HabitCard({
               ease: [0.4, 0, 0.2, 1],
               times: [0, 0.35, 1],
             }
-          : { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
+          : { duration: 0.32, ease: [0.4, 0, 0.2, 1] }
       }
-      className={`group relative overflow-hidden rounded-calm border border-line
-                 bg-raised px-4 py-4 shadow-calm sm:px-5
-                 transition-all duration-calm ease-calm
-                 hover:border-sage-300 hover:shadow-calm-lg
-                 dark:hover:border-sage-700 ${habit.archived ? 'opacity-70' : ''}`}
+      className={`group relative flex items-center gap-3 border-b border-line/70 py-3.5
+                 transition-colors duration-calm ease-calm first:border-t last:border-b-0
+                 sm:gap-4 ${complete ? 'opacity-90' : ''} ${habit.archived ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-center gap-3 sm:gap-4">
-        {reorderable && (
-          <span
-            className="flex shrink-0 items-center text-muted/60"
-            title="Drag to reorder"
-            aria-hidden
-          >
-            <GripVertical className="h-4 w-4" />
-          </span>
-        )}
-
-        {/* Completion toggle */}
-        <button
-          type="button"
-          onClick={() => onToggle(habit)}
-          disabled={busy}
-          aria-pressed={complete}
-          aria-label={
-            complete
-              ? `Undo today's completion for ${habit.name}`
-              : `Mark ${habit.name} complete today`
-          }
-          title={complete ? 'Undo today’s completion' : 'Mark complete today'}
-          className={`${complete ? 'silicone-primary' : 'silicone'} flex h-12 w-12 shrink-0 items-center justify-center
-                      rounded-full ${busy ? 'opacity-60' : ''}`}
+      {reorderable && (
+        <span
+          className="flex shrink-0 items-center text-muted/40"
+          title="Drag to reorder"
+          aria-hidden
         >
-          <Check
-            className={`h-5 w-5 transition-all duration-calm ease-calm ${
-              complete
-                ? 'scale-100 opacity-100'
-                : 'scale-75 text-sage-500 opacity-50 dark:text-sage-300'
-            }`}
-            aria-hidden
-          />
-        </button>
+          <GripVertical className="h-4 w-4" />
+        </span>
+      )}
 
-        {/* Name + streak */}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <h3 className="min-w-0 truncate font-display text-sm font-semibold text-ink sm:text-base">
-              {habit.name}
-            </h3>
-            {habit.category && (
-              <span className="shrink-0 rounded-md bg-mint-100 px-2 py-0.5 text-xs font-medium text-sage-700 dark:bg-mint-900/50 dark:text-mint-100">
-                {habit.category}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            {streakDisplay === 'flame' && (
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${streakChip}`}
-              >
-                <Flame
-                  className={`${flameSize} transition-all duration-calm ease-calm`}
-                  aria-hidden
-                />
-                {streakLabel}
-              </span>
-            )}
-            {streakDisplay === 'momentum' && momentumStats && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 font-medium text-muted dark:bg-mint-900/50">
-                {momentumTierLabel}
-                <span className="text-muted/70" aria-hidden>
-                  ·
-                </span>
-                <span className="tabular-nums">
-                  {momentumStats.completed} of {momentumStats.of} days
-                </span>
-              </span>
-            )}
-            {showScheduleChip && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 font-medium text-muted dark:bg-mint-900/50">
-                <Repeat className="h-3 w-3" aria-hidden />
-                {scheduleLabel(habit.schedule)}
-              </span>
-            )}
-            {showProgress && (
-              <span
-                className={`inline-flex items-center gap-1 font-medium ${
-                  progress.complete ? 'text-sage-600 dark:text-sage-300' : 'text-muted'
-                }`}
-              >
-                {progress.done}/{progress.target} {progress.label}
-              </span>
-            )}
-            <span className={`inline-flex items-center gap-1 ${deadlineClass}`}>
-              <Clock className="h-3.5 w-3.5" aria-hidden />
-              {deadline.text}
+      {/* Completion control — a ring that fills with sage and stamps a check. */}
+      <button
+        type="button"
+        onClick={() => onToggle(habit)}
+        disabled={busy}
+        aria-pressed={complete}
+        aria-label={
+          complete
+            ? `Undo today's completion for ${habit.name}`
+            : `Mark ${habit.name} complete today`
+        }
+        title={complete ? 'Undo today’s completion' : 'Mark complete today'}
+        className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2
+                    transition-all duration-calm ease-calm active:scale-90 sm:h-11 sm:w-11
+                    ${busy ? 'opacity-60' : ''} ${
+                      complete
+                        ? 'border-sage-500 bg-sage-500 text-white shadow-calm'
+                        : overdue
+                          ? 'border-peach-400 text-peach-600 hover:bg-peach-500/5 dark:border-peach-500 dark:text-peach-300 dark:hover:bg-peach-400/5'
+                          : `${accent.ring} bg-transparent hover:bg-sage-500/5 dark:hover:bg-sage-400/5`
+                    }`}
+      >
+        <Check
+          className={`h-[18px] w-[18px] transition-all duration-calm ease-calm ${
+            complete ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
+          }`}
+          strokeWidth={2.6}
+          aria-hidden
+        />
+      </button>
+
+      {/* Name and supporting facts */}
+      <div className="min-w-0 flex-1">
+        <h3
+          className={`min-w-0 break-words font-display text-[15px] font-semibold leading-snug transition-colors duration-calm ease-calm sm:text-base ${
+            complete ? 'text-muted' : 'text-ink'
+          }`}
+        >
+          {habit.name}
+        </h3>
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+          {streakDisplay === 'flame' && (
+            <span
+              className={`inline-flex items-center gap-1 font-medium tabular-nums ${streakTone}`}
+            >
+              <Flame className={`${flameSize} shrink-0`} aria-hidden />
+              {streakLabel}
             </span>
-            {onChangePeriod && (
-              <button
-                type="button"
-                onClick={openMenu}
-                aria-haspopup="menu"
-                aria-expanded={menuAnchor !== null}
-                aria-label={`Change time of day for ${habit.name}`}
-                title="Move to another time of day"
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2 py-0.5
-                           font-medium text-muted transition-colors duration-calm ease-calm
-                           hover:border-sage-300 hover:text-ink"
-              >
-                <PeriodIcon className="h-3 w-3" aria-hidden />
-                {PERIOD_LABELS[habit.timeOfDay]}
-              </button>
-            )}
-            {(onMoveUp || onMoveDown) && (
-              <ReorderButtons
-                label={habit.name}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-                canMoveUp={canMoveUp}
-                canMoveDown={canMoveDown}
-                className="inline-flex items-center gap-1"
-              />
-            )}
-          </div>
+          )}
+          {streakDisplay === 'momentum' && momentumStats && (
+            <span className="inline-flex items-center gap-1 text-muted tabular-nums">
+              {momentumTierLabel}
+              <span className="text-muted/50" aria-hidden>
+                ·
+              </span>
+              {momentumStats.completed} of {momentumStats.of} days
+            </span>
+          )}
+          {showScheduleChip && (
+            <span className="inline-flex items-center gap-1 text-muted">
+              <Repeat className="h-3 w-3 shrink-0" aria-hidden />
+              {scheduleLabel(habit.schedule)}
+            </span>
+          )}
+          {showProgress && (
+            <span
+              className={`inline-flex items-center gap-1 font-medium tabular-nums ${
+                progress.complete ? 'text-sage-600 dark:text-sage-300' : 'text-muted'
+              }`}
+            >
+              {progress.done}/{progress.target} {progress.label}
+            </span>
+          )}
+          <span className={`inline-flex items-center gap-1 tabular-nums ${deadlineClass}`}>
+            <Clock className="h-3 w-3 shrink-0" aria-hidden />
+            {deadline.text}
+          </span>
+          {habit.category && (
+            <span className={`${accent.tint} rounded-full px-2 py-0.5 font-medium`}>
+              {habit.category}
+            </span>
+          )}
+          {onChangePeriod && (
+            <button
+              type="button"
+              onClick={openMenu}
+              aria-haspopup="menu"
+              aria-expanded={menuAnchor !== null}
+              aria-label={`Change time of day for ${habit.name}`}
+              title="Move to another time of day"
+              className="-my-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-muted
+                         transition-colors duration-calm ease-calm hover:bg-mint-100 hover:text-ink
+                         dark:hover:bg-mint-900/40"
+            >
+              <PeriodIcon className="h-3 w-3 shrink-0" aria-hidden />
+              {PERIOD_LABELS[habit.timeOfDay]}
+            </button>
+          )}
+          {(onMoveUp || onMoveDown) && (
+            <ReorderButtons
+              label={habit.name}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              canMoveUp={canMoveUp}
+              canMoveDown={canMoveDown}
+              className="inline-flex items-center gap-1"
+            />
+          )}
           {habit.archived && (
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted">Archived</p>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+              Archived
+            </span>
           )}
         </div>
-
-        {/* Overflow menu → tap → spin → edit + archive + delete */}
-        <RowActions
-          id={habit.id}
-          label={habit.name}
-          archived={habit.archived}
-          open={actionsOpen}
-          onToggle={onToggleActions}
-          onEdit={() => onEdit(habit)}
-          onArchive={() => onArchive(habit)}
-          onDelete={() => onDelete(habit)}
-        />
       </div>
+
+      <RowActions
+        id={habit.id}
+        label={habit.name}
+        archived={habit.archived}
+        open={actionsOpen}
+        onToggle={onToggleActions}
+        onEdit={() => onEdit(habit)}
+        onArchive={() => onArchive(habit)}
+        onDelete={() => onDelete(habit)}
+      />
 
       {menuAnchor && onChangePeriod && (
         <PeriodMenu

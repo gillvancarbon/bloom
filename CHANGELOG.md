@@ -4,6 +4,37 @@ All notable changes to Bloom are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] — 2026-11-15
+
+A calmer, cleaner pass over the whole interface: one set of shared controls, less
+furniture around the list, and an overdue state that reads on the check circle.
+
+### Changed
+
+- **A calmer, cleaner look** — habit cards, task cards, the day summary and
+  Settings are rebuilt on one shared set of UI primitives (buttons, chips,
+  fields, headings, icon buttons, empty and error states), so the same control
+  looks the same everywhere.
+- **Today at a glance** — the three boxed statistic cards are gone. Today's
+  progress now leads the screen as a single headline figure with a short, human
+  line beneath it, and the streak and overdue counts sit alongside as quiet
+  facts.
+- **Quieter panels** — rows and inline tips that used to sit in bordered boxes
+  are now set off by whitespace and a hairline rule, so the list of habits and
+  tasks stays the main thing on the screen.
+- **Overdue reads on the check circle** — a habit or task past its deadline now
+  tints its completion circle peach, instead of drawing a separate marker down
+  the card edge.
+- **Streak freezes stay out of an empty list** — with no habits yet, the freeze
+  control is hidden rather than sitting above the empty state as a "0 left"
+  badge.
+- **The version can no longer drift** — the in-app version is read from
+  `package.json` instead of being hard-coded, where it had fallen four releases
+  behind.
+- **A side-by-side Android review build** — the debug build now installs as a
+  separate **Bloom Dev** app (`com.bloom.habittracker.dev`), so in-progress work
+  can be tried without touching a released install and its data.
+
 ## [1.5.3] — 2026-11-09
 
 ### Fixed

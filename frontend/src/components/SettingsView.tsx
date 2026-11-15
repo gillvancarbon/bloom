@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Portal } from './Portal'
 import { Segmented } from './Segmented'
 import { DeleteConfirm } from './DeleteConfirm'
+import { Button } from './ui/Button'
+import { FIELD_SELECT, SELECT_CHEVRON } from './ui/Field'
 import { useSettings } from '../context/SettingsContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTheme } from '../context/ThemeContext'
@@ -81,21 +83,29 @@ const PAGE_SUBTITLES: Record<SettingsPage, string> = {
 
 /* ── Small building blocks ─────────────────────────────────────────── */
 
-/** A calm card that groups related rows inside a sub-page. */
-function Card({ children }: { children: ReactNode }) {
+/**
+ * A group of related settings rows. A soft surface with a hairline edge rather
+ * than a shadowed card, and — on the landing list — one group divided by
+ * hairlines instead of one floating pill per row.
+ */
+function Card({ children, flush = false }: { children: ReactNode; flush?: boolean }) {
   return (
-    <section className="rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-      <div className="space-y-4">{children}</div>
+    <section
+      className={`rounded-calm border border-line/70 bg-raised/70 ${
+        flush ? 'divide-y divide-line/70 px-4' : 'p-4 sm:p-5'
+      }`}
+    >
+      {flush ? children : <div className="space-y-4">{children}</div>}
     </section>
   )
 }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0">
         <p className="text-sm font-medium text-ink">{label}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+        {hint && <p className="mt-0.5 text-xs leading-relaxed text-muted">{hint}</p>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -118,7 +128,7 @@ function SettingsRow({
     <button
       type="button"
       onClick={onClick}
-      className="silicone group flex w-full items-center gap-3 rounded-calm px-4 py-3.5 text-left"
+      className="group flex w-full items-center gap-3 py-3.5 text-left"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mint-100 text-sage-600 dark:bg-mint-900/50 dark:text-sage-300">
         <Icon className="h-4 w-4" aria-hidden />
@@ -173,7 +183,7 @@ function Switch({
   )
 }
 
-/** A three-way choice that keeps the segmented look with a 44px target. */
+/** A three-way choice for how streaks are shown on habit cards. */
 function StreakPicker({
   value,
   onChange,
@@ -181,36 +191,17 @@ function StreakPicker({
   value: StreakDisplay
   onChange: (next: StreakDisplay) => void
 }) {
-  const options: { value: StreakDisplay; label: string }[] = [
-    { value: 'flame', label: 'Flame' },
-    { value: 'momentum', label: 'Momentum' },
-    { value: 'hidden', label: 'Hidden' },
-  ]
-
   return (
-    <div
-      role="radiogroup"
-      aria-label="Streak display"
-      className="flex gap-1 rounded-calm-sm border border-line bg-surface p-1"
-    >
-      {options.map((option) => {
-        const selected = option.value === value
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(option.value)}
-            className={`flex min-h-11 flex-1 items-center justify-center rounded-calm-sm px-3 text-sm font-medium transition-all duration-calm ease-calm ${
-              selected ? 'bg-sage-500 text-white shadow-calm' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
+    <Segmented
+      ariaLabel="Streak display"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'flame' as StreakDisplay, label: 'Flame' },
+        { value: 'momentum' as StreakDisplay, label: 'Momentum' },
+        { value: 'hidden' as StreakDisplay, label: 'Hidden' },
+      ]}
+    />
   )
 }
 
@@ -255,19 +246,15 @@ function SoundSheet({
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="max-h-[75vh] w-full max-w-md overflow-y-auto rounded-t-calm border border-line bg-raised p-4 shadow-calm sm:rounded-calm"
+          className="max-h-[75vh] w-full max-w-md overflow-y-auto rounded-t-calm-lg bg-raised p-4 shadow-calm-lg sm:rounded-calm-lg"
         >
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="silicone rounded-full px-4 py-2 text-sm font-semibold"
-            >
+            <h3 className="font-display text-lg font-semibold tracking-tight text-ink">{title}</h3>
+            <Button variant="ghost" className="hover:text-ink" onClick={onClose}>
               Done
-            </button>
+            </Button>
           </div>
-          <ul className="space-y-1">
+          <ul>
             {options.map((option) => {
               const isSelected = option.id === selected
               const silent = option.id === 'none'
@@ -275,7 +262,7 @@ function SoundSheet({
                 <li key={option.id}>
                   <div
                     className={`flex items-center gap-1 rounded-calm-sm ${
-                      isSelected ? 'bg-mint-100 dark:bg-mint-900/40' : ''
+                      isSelected ? 'bg-mint-100/70 dark:bg-mint-900/40' : ''
                     }`}
                   >
                     <button
@@ -299,8 +286,8 @@ function SoundSheet({
                         type="button"
                         onClick={() => void playSound(option.id)}
                         aria-label={`Preview ${option.title}`}
-                        className="silicone-quiet mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full
-                                   text-muted hover:text-sage-500 dark:hover:text-sage-300"
+                        className="silicone-quiet mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                                   text-muted hover:text-ink dark:hover:text-ink"
                       >
                         <Play className="h-3.5 w-3.5" aria-hidden />
                       </button>
@@ -612,7 +599,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
   function renderHome() {
     return (
-      <div className="flex flex-col gap-2">
+      <Card flush>
         <SettingsRow
           Icon={Bell}
           label="Reminders"
@@ -655,7 +642,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           summary={`Version ${APP_VERSION}`}
           onClick={() => setPage('about')}
         />
-      </div>
+      </Card>
     )
   }
 
@@ -688,7 +675,9 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             onChange={(v) => update({ quietHoursEnabled: v })}
           />
         </Row>
-        <div className="rounded-calm-sm border border-line bg-surface p-3">
+        {/* Divided, not boxed: the enclosing Card already provides the
+            surface, so this groups by a hairline instead of a nested panel. */}
+        <div className="border-t border-line/70 pt-4">
           <div className="flex flex-wrap gap-3">
             <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-xs font-medium text-muted">
               Quiet hours start
@@ -697,9 +686,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 value={settings.quietHoursStart}
                 disabled={!settings.notificationsEnabled || !settings.quietHoursEnabled}
                 onChange={(e) => setQuietTime('quietHoursStart', e.target.value)}
-                className="min-h-11 w-full rounded-calm-sm border border-line bg-raised px-3 text-sm text-ink
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30
-                           disabled:cursor-not-allowed disabled:opacity-50"
+                className={`${FIELD_SELECT} min-h-11 disabled:cursor-not-allowed disabled:opacity-50`}
               />
             </label>
             <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-xs font-medium text-muted">
@@ -709,9 +696,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 value={settings.quietHoursEnd}
                 disabled={!settings.notificationsEnabled || !settings.quietHoursEnabled}
                 onChange={(e) => setQuietTime('quietHoursEnd', e.target.value)}
-                className="min-h-11 w-full rounded-calm-sm border border-line bg-raised px-3 text-sm text-ink
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30
-                           disabled:cursor-not-allowed disabled:opacity-50"
+                className={`${FIELD_SELECT} min-h-11 disabled:cursor-not-allowed disabled:opacity-50`}
               />
             </label>
           </div>
@@ -749,26 +734,21 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           />
         </Row>
         <Row label="Test reminders" hint="Send one now to check permissions and the chosen sound.">
-          <button
-            type="button"
-            onClick={() => void testNotification()}
-            disabled={testStatus === 'sending'}
-            className="silicone rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
-          >
+          <Button onClick={() => void testNotification()} disabled={testStatus === 'sending'}>
             {testStatus === 'sending' ? 'Sending…' : 'Send test'}
-          </button>
+          </Button>
         </Row>
         {testStatus === 'sent' && (
-          <p className="rounded-calm-sm bg-mint-100 px-3 py-2 text-sm text-sage-700 dark:bg-mint-900/40 dark:text-mint-100">
+          <p className="border-l-2 border-sage-400 py-0.5 pl-3 text-sm text-sage-700 dark:text-sage-200">
             Test sent. It should arrive in a few seconds.
           </p>
         )}
         {testStatus === 'blocked' && (
-          <p className="rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+          <p className="border-l-2 border-peach-400 py-0.5 pl-3 text-sm text-peach-700 dark:text-peach-300">
             Notifications are blocked. Allow them for Bloom in your system settings, then try again.
           </p>
         )}
-        <div className="rounded-calm-sm border border-line bg-surface px-3 py-2.5">
+        <div className="border-t border-line/70 pt-4">
           <p className="text-xs leading-relaxed text-muted">
             {settings.notificationsEnabled
               ? notificationsNative()
@@ -797,8 +777,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                 defaultReminderOffset: e.target.value === '' ? null : Number(e.target.value),
               })
             }
-            className="max-w-[11rem] rounded-calm-sm border border-line bg-surface py-2 pl-3 pr-2 text-sm text-ink
-                       focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+            className={`${FIELD_SELECT} max-w-[11rem] py-2`}
+            style={SELECT_CHEVRON}
           >
             {REMINDER_OPTIONS.map((option) => (
               <option key={option.value ?? 'none'} value={option.value ?? ''}>
@@ -955,7 +935,9 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           </Row>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Feedback</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+            Feedback
+          </p>
           <Row label="Celebrations" hint="A gentle pulse when you finish something.">
             <Switch
               label="Celebrations"
@@ -986,59 +968,45 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           />
         </Row>
         <Row label="Latest backup" hint={lastBackup}>
-          <button
-            type="button"
-            onClick={backUpNow}
-            disabled={busy}
-            className="silicone rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
-          >
-            Back up now
-          </button>
+          <Button onClick={backUpNow} disabled={busy}>
+            {busy ? 'Backing up…' : 'Back up now'}
+          </Button>
         </Row>
         {backups.length > 0 && (
           <div className="space-y-2 border-t border-line pt-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">Restore points</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+              Restore points
+            </p>
             {backups.slice(0, 5).map((backup) => (
               <div key={backup.at} className="flex items-center justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate text-muted">
                   {new Date(backup.at).toLocaleString()}
                   <span className="ml-1 text-xs opacity-70">· {backup.reason}</span>
                 </span>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0 text-sage-600 hover:text-ink dark:text-sage-300"
                   onClick={() => setConfirm(backup)}
-                  className="silicone-quiet shrink-0 rounded-full px-3 py-1 text-xs font-semibold
-                             text-sage-600 hover:text-ink dark:text-sage-300"
                 >
                   Restore
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
         <Row label="Export your data" hint="Save a full JSON snapshot you can keep.">
-          <button
-            type="button"
-            onClick={exportData}
-            disabled={exporting}
-            className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
-          >
-            <Download className="h-4 w-4" aria-hidden />
+          <Button icon={Download} onClick={exportData} disabled={exporting}>
             Export
-          </button>
+          </Button>
         </Row>
         <Row
           label="Import from JSON"
           hint="Restore habits and tasks from a Bloom export. Replaces what’s here."
         >
-          <button
-            type="button"
-            onClick={() => importInputRef.current?.click()}
-            className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Upload className="h-4 w-4" aria-hidden />
+          <Button icon={Upload} onClick={() => importInputRef.current?.click()}>
             Import
-          </button>
+          </Button>
           <input
             ref={importInputRef}
             type="file"
@@ -1048,7 +1016,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           />
         </Row>
         {importError && (
-          <p className="rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+          <p
+            role="alert"
+            className="border-l-2 border-peach-400 py-0.5 pl-3 text-sm text-peach-700 dark:text-peach-300"
+          >
             {importError}
           </p>
         )}
@@ -1056,23 +1027,18 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           label="Diagnostics"
           hint="Save environment details and counts for a bug report — no titles or notes."
         >
-          <button
-            type="button"
-            onClick={() => void exportDiagnostics()}
-            className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Download className="h-4 w-4" aria-hidden />
+          <Button icon={Download} onClick={() => void exportDiagnostics()}>
             {Capacitor.isNativePlatform() ? 'Save' : 'Download'}
-          </button>
+          </Button>
         </Row>
         <div className="border-t border-line pt-3">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            className="w-full text-peach-600 hover:text-peach-700 dark:text-peach-300"
             onClick={() => setConfirm('clear')}
-            className="silicone-quiet w-full rounded-full px-4 py-2 text-sm font-semibold text-peach-600 dark:text-peach-300"
           >
             Clear all habits and tasks
-          </button>
+          </Button>
         </div>
       </Card>
     )
@@ -1082,23 +1048,14 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     return (
       <Card>
         <Row label="How to use Bloom" hint="The complete guide: every screen, setting and gesture.">
-          <button
-            type="button"
-            onClick={() => setTutorialOpen(true)}
-            className="silicone inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <BookOpen className="h-4 w-4" aria-hidden />
+          <Button icon={BookOpen} onClick={() => setTutorialOpen(true)}>
             Open guide
-          </button>
+          </Button>
         </Row>
         <Row label="Welcome tour" hint="Play the first-run introduction again.">
-          <button
-            type="button"
-            onClick={replayIntro}
-            className="silicone-quiet rounded-full px-4 py-2 text-sm font-semibold text-muted hover:text-ink"
-          >
+          <Button variant="ghost" className="text-muted hover:text-ink" onClick={replayIntro}>
             Replay
-          </button>
+          </Button>
         </Row>
       </Card>
     )
@@ -1108,13 +1065,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     return (
       <Card>
         <Row label="About Bloom" hint={`Version ${APP_VERSION} · privacy, terms and licences.`}>
-          <button
-            type="button"
-            onClick={() => setAboutOpen(true)}
-            className="silicone rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            Open
-          </button>
+          <Button onClick={() => setAboutOpen(true)}>Open</Button>
         </Row>
       </Card>
     )
@@ -1166,8 +1117,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
               type="button"
               onClick={page === 'home' ? onClose : () => setPage('home')}
               aria-label={page === 'home' ? 'Close settings' : 'Back to settings'}
-              className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+              className="silicone -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
+                         hover:text-ink dark:hover:text-ink"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>

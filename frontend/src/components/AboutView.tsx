@@ -18,7 +18,12 @@ interface AboutViewProps {
   onClose: () => void
 }
 
-function Card({
+/**
+ * An editorial section rather than a boxed card: a hairline rule above, a
+ * heading, then the prose. Keeps long legal copy readable without stacking
+ * rounded panels down the page.
+ */
+function Section({
   Icon,
   title,
   children,
@@ -28,7 +33,7 @@ function Card({
   children: ReactNode
 }) {
   return (
-    <section className="rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
+    <section className="border-t border-line/70 pt-5">
       <h2 className="mb-2 flex items-center gap-2 font-display text-sm font-semibold text-ink">
         <Icon className="h-4 w-4 text-sage-500 dark:text-sage-300" aria-hidden />
         {title}
@@ -44,14 +49,17 @@ function ExternalLinkRow({ href, label, hint }: { href: string; label: string; h
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center justify-between gap-3 rounded-calm-sm border border-line bg-surface px-3.5 py-3
-                 transition-all duration-calm ease-calm hover:border-sage-300"
+      className="group flex items-center justify-between gap-3 border-b border-line/70 py-2.5
+                 transition-colors duration-calm ease-calm last:border-b-0 hover:text-ink"
     >
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-ink">{label}</span>
         <span className="block truncate text-xs text-muted">{hint}</span>
       </span>
-      <ExternalLink className="h-4 w-4 shrink-0 text-sage-500 dark:text-sage-300" aria-hidden />
+      <ExternalLink
+        className="h-4 w-4 shrink-0 text-muted transition-colors duration-calm ease-calm group-hover:text-sage-500 dark:group-hover:text-sage-300"
+        aria-hidden
+      />
     </a>
   )
 }
@@ -95,7 +103,7 @@ export function AboutView({ onClose }: AboutViewProps) {
               onClick={onClose}
               aria-label="Close about"
               className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+                         hover:text-ink dark:hover:text-ink"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
@@ -110,15 +118,15 @@ export function AboutView({ onClose }: AboutViewProps) {
             </div>
           </header>
 
-          <div className="flex flex-col items-center rounded-calm border border-line bg-raised p-6 text-center shadow-calm">
-            <span className="silicone-primary mb-3 flex h-16 w-16 items-center justify-center rounded-full">
+          <div className="flex flex-col items-center border-t border-line/70 py-8 text-center">
+            <span className="silicone-primary mb-4 flex h-16 w-16 items-center justify-center rounded-full">
               <Leaf className="h-8 w-8" aria-hidden />
             </span>
-            <p className="font-display text-lg font-semibold text-ink">Bloom</p>
+            <p className="font-display text-xl font-semibold tracking-tight text-ink">Bloom</p>
             <p className="mt-1 text-sm text-muted">Grow gently, one day at a time.</p>
           </div>
 
-          <Card Icon={ShieldCheck} title="Your privacy">
+          <Section Icon={ShieldCheck} title="Your privacy">
             <p>
               Bloom keeps your habits, tasks and backups <strong>on your device</strong>. There is
               no account, no analytics, and no data sent to us. Uninstalling the app removes its
@@ -129,9 +137,9 @@ export function AboutView({ onClose }: AboutViewProps) {
               label="Privacy policy"
               hint="What stays on your device"
             />
-          </Card>
+          </Section>
 
-          <Card Icon={ScrollText} title="Terms of use">
+          <Section Icon={ScrollText} title="Terms of use">
             <p>
               A new user must agree to these terms before Bloom opens. In short: {TERMS_SUMMARY}
             </p>
@@ -149,9 +157,9 @@ export function AboutView({ onClose }: AboutViewProps) {
               label="Full guide"
               hint="The complete manual for new users"
             />
-          </Card>
+          </Section>
 
-          <Card Icon={Github} title="Licence">
+          <Section Icon={Github} title="Licence">
             <p>
               Bloom is free for personal, noncommercial use. You may not sell it or redistribute it
               commercially. It is built with React, Spring Boot and other open-source projects.
@@ -166,7 +174,7 @@ export function AboutView({ onClose }: AboutViewProps) {
               label="Licence"
               hint="Personal use, no commercial use"
             />
-          </Card>
+          </Section>
 
           <p className="flex items-center justify-center gap-1.5 pb-8 text-center text-xs text-muted">
             Made with{' '}

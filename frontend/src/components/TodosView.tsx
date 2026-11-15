@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Archive, Check, ChevronDown, ListChecks, Plus, Search, Sparkles, X } from 'lucide-react'
+import { Archive, Check, ListChecks, Plus, Search, Sparkles, X } from 'lucide-react'
 import { AppHeader } from './AppHeader'
 import { TodoCard } from './TodoCard'
 import { TodoForm } from './TodoForm'
 import { DeleteConfirm } from './DeleteConfirm'
-import { Stat } from './Stat'
 import { UndoToast } from './UndoToast'
+import { Button } from './ui/Button'
+import { Chip } from './ui/Chip'
+import { Collapsible } from './ui/Collapsible'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorState } from './ui/ErrorState'
+import { FIELD_INPUT, SELECT_CHEVRON } from './ui/Field'
+import { IconButton } from './ui/IconButton'
+import { SectionHeading } from './ui/SectionHeading'
+import { SkeletonList } from './ui/Skeleton'
+import { TaskSummary } from './TaskSummary'
 import { useTodos } from '../hooks/useTodos'
 import { useNow } from '../hooks/useNow'
 import { useWindowedList } from '../hooks/useWindowedList'
@@ -105,6 +114,20 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
    * Announce a change to assistive tech. Clearing first lets the same sentence
    * be announced twice in a row (e.g. adding two tasks with the same title).
    */
+  /** Arrow keys rove across the view chips, matching the habits period tabs. */
+  function handleViewKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const index = Math.max(
+      0,
+      TODO_VIEWS.findIndex((option) => option.value === view),
+    )
+    const dir = event.key === 'ArrowRight' ? 1 : -1
+    const next = TODO_VIEWS[(index + dir + TODO_VIEWS.length) % TODO_VIEWS.length].value
+    setView(next)
+    requestAnimationFrame(() => document.getElementById(`todo-view-${next}`)?.focus())
+  }
+
   function announce(message: string) {
     setLiveMessage('')
     requestAnimationFrame(() => setLiveMessage(message))
@@ -330,68 +353,57 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
         onOpenInsights={onOpenInsights}
       />
 
-      {/* Stats */}
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-        className="mb-6 grid grid-cols-3 gap-2 sm:gap-3"
-      >
-        <Stat
-          label="Done today"
-          value={`${stats.doneToday} / ${openTodos.length + doneTodayTodos.length}`}
-          title="Tasks completed today out of tasks on your board"
+      {/* Today at a glance — hidden once the board is empty, matching the
+          habits screen: "0 open · 0 done · 0 due today" is noise above an
+          empty state that already says what to do. */}
+      {!loading && !error && activeTodos.length > 0 && (
+        <TaskSummary
+          doneToday={stats.doneToday}
+          boardTotal={openTodos.length + doneTodayTodos.length}
+          dueToday={stats.dueToday}
+          overdue={stats.overdue}
+          hasTasks={activeTodos.length > 0}
         />
-        <Stat label="Due today" value={stats.dueToday} title="Open tasks due today" />
-        <Stat
-          label="Overdue"
-          value={stats.overdue}
-          accent={stats.overdue > 0}
-          title="Open tasks with a due date or time in the past"
-        />
-      </motion.section>
+      )}
 
       {/* Add task */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-display text-base font-semibold text-ink sm:text-lg">Your tasks</h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => (selecting ? endSelection() : setSelecting(true))}
-            aria-pressed={selecting}
-            aria-label={selecting ? 'Done selecting' : 'Select tasks'}
-            title="Select tasks"
-            className={`silicone flex h-9 w-9 items-center justify-center rounded-full ${
-              selecting ? 'text-sage-500 dark:text-sage-300' : 'text-muted'
-            }`}
-          >
-            <ListChecks className="h-4 w-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSearchOpen((open) => !open)
-              if (searchOpen) setQuery('')
-            }}
-            aria-label={searchOpen ? 'Close search' : 'Search tasks'}
-            aria-pressed={searchOpen}
-            title="Search tasks"
-            className={`silicone flex h-9 w-9 items-center justify-center rounded-full ${
-              searchOpen ? 'text-sage-500 dark:text-sage-300' : 'text-muted'
-            }`}
-          >
-            <Search className="h-4 w-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDialog({ type: 'create' })}
-            className="silicone-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add task
-          </button>
-        </div>
-      </div>
+      <SectionHeading
+        action={
+          <>
+            <IconButton
+              icon={ListChecks}
+              label={selecting ? 'Done selecting' : 'Select tasks'}
+              tone="quiet"
+              size="sm"
+              aria-pressed={selecting}
+              className={selecting ? 'text-sage-600 dark:text-sage-300' : ''}
+              onClick={() => (selecting ? endSelection() : setSelecting(true))}
+            />
+            <IconButton
+              icon={Search}
+              label={searchOpen ? 'Close search' : 'Search tasks'}
+              tone="quiet"
+              size="sm"
+              aria-pressed={searchOpen}
+              className={searchOpen ? 'text-sage-600 dark:text-sage-300' : ''}
+              onClick={() => {
+                setSearchOpen((open) => !open)
+                if (searchOpen) setQuery('')
+              }}
+            />
+            <Button
+              icon={Plus}
+              variant="primary"
+              size="sm"
+              onClick={() => setDialog({ type: 'create' })}
+            >
+              Add task
+            </Button>
+          </>
+        }
+      >
+        Your tasks
+      </SectionHeading>
 
       {/* Quick add — type a sentence, we work out the rest */}
       {!loading && !error && (
@@ -412,9 +424,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tasks and steps"
               aria-label="Search tasks"
-              className="w-full rounded-calm-sm border border-line bg-surface py-2 pl-9 pr-9 text-sm
-                         text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
-                         focus:ring-2 focus:ring-sage-400/30"
+              className={`${FIELD_INPUT} pr-9`}
             />
             {query && (
               <button
@@ -436,6 +446,7 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
           <div
             role="tablist"
             aria-label="Task view"
+            onKeyDown={handleViewKeyDown}
             className="mb-3 flex flex-wrap items-center gap-1.5"
           >
             {TODO_VIEWS.map((option) => {
@@ -443,51 +454,35 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
               const count =
                 option.value === 'all' ? openTodos.length : bucketCounts[option.value as TodoBucket]
               const showOverdue = option.value === 'today' && stats.overdue > 0
-              const stateClass = selected
-                ? 'bg-sage-500 text-white shadow-calm'
-                : 'bg-mint-100 text-sage-700 hover:bg-mint-200 dark:bg-mint-900/50 dark:text-mint-100 dark:hover:bg-mint-900/70'
               return (
-                <button
+                <Chip
                   key={option.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
+                  id={`todo-view-${option.value}`}
+                  selected={selected}
+                  ariaSelected={selected}
+                  tabIndex={selected ? 0 : -1}
+                  count={count > 0 ? count : undefined}
+                  dot={showOverdue}
                   onClick={() => setView(option.value)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium
-                              transition-all duration-calm ease-calm ${stateClass}`}
                 >
                   {option.label}
-                  {count > 0 && (
-                    <span
-                      className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
-                        selected ? 'bg-white/25' : 'bg-black/5 dark:bg-white/10'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                  {showOverdue && (
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        selected ? 'bg-white' : 'bg-peach-500 dark:bg-peach-300'
-                      }`}
-                      aria-hidden
-                    />
-                  )}
-                </button>
+                </Chip>
               )
             })}
           </div>
 
           <div className="mb-4 flex items-center justify-end">
-            <label className="flex items-center gap-2 text-xs text-muted">
+            <label className="flex items-center gap-1.5 text-xs text-muted">
               <span className="sr-only sm:not-sr-only">Sort</span>
               <select
                 aria-label="Sort tasks"
                 value={settings.todoSort}
                 onChange={(e) => updateSettings({ todoSort: e.target.value as TodoSort })}
-                className="rounded-calm-sm border border-line bg-surface py-1.5 pl-2 pr-1 text-xs text-ink
-                           focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                className="cursor-pointer appearance-none rounded-full border border-line bg-transparent py-1.5 pl-3 pr-6
+                           text-xs font-medium text-muted transition-colors duration-calm ease-calm
+                           hover:border-sage-300 hover:text-ink focus:border-sage-400 focus:outline-none
+                           focus:ring-2 focus:ring-sage-400/30"
+                style={SELECT_CHEVRON}
               >
                 {TODO_SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -502,97 +497,69 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
 
       {/* Bulk actions — shown while selecting tasks */}
       {selecting && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-calm border border-line bg-raised px-3 py-2 shadow-calm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-sage-400 py-1 pl-3.5">
           <span className="text-xs font-medium text-muted">
             {selected.size === 0 ? 'Select tasks to act on' : `${selected.size} selected`}
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => selectAllShown(orderedOpen.map((t) => t.id))}
               disabled={orderedOpen.length === 0}
-              className="silicone-quiet rounded-full px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-40"
             >
               Select all
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Check}
               onClick={() => void bulkComplete()}
               disabled={selected.size === 0}
-              className="silicone inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-sage-700 disabled:opacity-40 dark:text-sage-200"
+              className="text-sage-700 dark:text-sage-200"
             >
-              <Check className="h-3.5 w-3.5" aria-hidden />
               Complete
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Archive}
               onClick={() => void bulkArchive(true)}
               disabled={selected.size === 0}
-              className="silicone inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-muted disabled:opacity-40"
             >
-              <Archive className="h-3.5 w-3.5" aria-hidden />
               Archive
-            </button>
-            <button
-              type="button"
-              onClick={endSelection}
-              className="silicone-quiet rounded-full px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink"
-            >
+            </Button>
+            <Button variant="ghost" size="sm" onClick={endSelection}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-3" aria-label="Loading tasks">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-[68px] animate-pulse rounded-calm bg-mint-100 dark:bg-mint-900/40"
-            />
-          ))}
-        </div>
+        <SkeletonList rows={3} label="Loading tasks" />
       ) : error ? (
-        <div className="rounded-calm border border-peach-200 bg-peach-50 p-5 text-peach-700 dark:border-peach-900 dark:bg-peach-900/30 dark:text-peach-200">
-          <p className="font-medium">We couldn’t load your tasks.</p>
-          <p className="mt-1 text-sm opacity-80">{error}</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="silicone mt-3 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          title="We couldn’t load your tasks."
+          detail={error}
+          onRetry={() => window.location.reload()}
+        />
       ) : todos.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center rounded-calm border border-dashed border-line bg-raised/60 px-6 py-14 text-center"
-        >
-          <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mint-100 text-sage-500 dark:bg-mint-900/50 dark:text-sage-300">
-            <Sparkles className="h-6 w-6" aria-hidden />
-          </span>
-          <h3 className="font-display text-lg font-semibold text-ink">Nothing on your plate</h3>
-          <p className="mt-1 max-w-xs text-sm text-muted">
-            Add a task above, or type a whole sentence into the quick-add line — Bloom works out the
-            date for you.
-          </p>
-          <button
-            type="button"
-            onClick={() => setDialog({ type: 'create' })}
-            className="silicone-primary mt-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add your first task
-          </button>
-        </motion.div>
+        <EmptyState
+          icon={Sparkles}
+          title="Nothing on your plate"
+          description="Add a task above, or type a whole sentence into the quick-add line — Bloom works out the date for you."
+          actions={
+            <Button icon={Plus} variant="primary" onClick={() => setDialog({ type: 'create' })}>
+              Add your first task
+            </Button>
+          }
+        />
       ) : (
         <>
           {orderedOpen.length > 0 ? (
-            <motion.ul layout className="space-y-3">
+            <motion.ul layout className="">
               <AnimatePresence initial={false}>
                 {openWindow.visible.map((todo, index) => (
                   <li key={todo.id}>
@@ -634,36 +601,28 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
               </AnimatePresence>
             </motion.ul>
           ) : (
-            <div className="rounded-calm border border-dashed border-line bg-raised/60 px-4 py-8 text-center">
-              <p className="font-display text-sm font-semibold text-ink">
-                {searching ? 'No matching tasks' : EMPTY_VIEW_TEXT[view].title}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {searching ? `Nothing matches “${query.trim()}”.` : EMPTY_VIEW_TEXT[view].hint}
-              </p>
-            </div>
+            <EmptyState
+              compact
+              title={searching ? 'No matching tasks' : EMPTY_VIEW_TEXT[view].title}
+              description={
+                searching ? `Nothing matches “${query.trim()}”.` : EMPTY_VIEW_TEXT[view].hint
+              }
+            />
           )}
 
           {/* Grow the window when the end of the mounted list comes into view. */}
           {orderedOpen.length > 0 && openWindow.hasMore && (
             <div ref={openWindow.sentinelRef} className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={openWindow.showMore}
-                className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
-              >
+              <Button variant="ghost" size="sm" onClick={openWindow.showMore}>
                 Show more ({orderedOpen.length - openWindow.visible.length} left)
-              </button>
+              </Button>
             </div>
           )}
 
           {doneTodayTodos.length > 0 && (
             <section className="mt-7">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-display text-sm font-semibold text-ink">Done today</h3>
-                <span className="text-xs text-muted">{doneTodayTodos.length}</span>
-              </div>
-              <motion.ul layout className="space-y-3">
+              <SectionHeading variant="label">Done today</SectionHeading>
+              <motion.ul layout className="">
                 <AnimatePresence initial={false}>
                   {doneTodayTodos.map((todo) => (
                     <li key={todo.id}>
@@ -695,26 +654,15 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
           )}
 
           {archivedTodos.length > 0 && (
-            <section className="mt-6">
-              <button
-                type="button"
-                onClick={() => setShowArchived((v) => !v)}
-                aria-expanded={showArchived}
-                className="silicone-quiet flex w-full items-center justify-between rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+            <section className="mt-4">
+              <Collapsible
+                title="Archived"
+                count={archivedTodos.length}
+                icon={Archive}
+                open={showArchived}
+                onToggle={() => setShowArchived((v) => !v)}
               >
-                <span className="inline-flex items-center gap-2">
-                  <Archive className="h-4 w-4" aria-hidden />
-                  Archived ({archivedTodos.length})
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform duration-calm ease-calm ${
-                    showArchived ? 'rotate-180' : ''
-                  }`}
-                  aria-hidden
-                />
-              </button>
-              {showArchived && (
-                <motion.ul layout className="mt-3 space-y-3">
+                <motion.ul layout className="">
                   {archivedTodos.map((todo) => (
                     <li key={todo.id}>
                       <TodoCard
@@ -739,15 +687,14 @@ export function TodosView({ onOpenSettings, onOpenCalendar, onOpenInsights }: To
                     </li>
                   ))}
                 </motion.ul>
-              )}
+              </Collapsible>
             </section>
           )}
         </>
       )}
 
-      <footer className="mt-10 text-center text-xs text-muted">
-        Type a sentence in the quick-add line and Bloom works out the date. Switch between Today,
-        Upcoming and Anytime, or All to see everything.
+      <footer className="mt-10 text-center text-xs leading-relaxed text-muted">
+        Type a sentence in the quick-add line and Bloom works out the date.
       </footer>
 
       <UndoToast item={undo.item} onUndo={undo.undo} onDismiss={undo.commitNow} />

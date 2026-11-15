@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 /* ── Semantic theme tokens ──────────────────────────────────────────
-   Three hue families carry the app: sage, peach, mint. A fourth, an icy
-   "frost" blue, is reserved for streak freezes. Neutrals are tinted with
-   a hint of sage so everything harmonises.
+   Three hue families carry the app: sage (primary), peach (accent), mint
+   (calm). A fourth, an icy "frost" blue, is reserved for streak freezes.
+   Neutrals are tinted with a hint of sage so everything harmonises.
    ------------------------------------------------------------------ */
 :root {
-  --page: 246 249 246; /* page backdrop, faint mint */
+  --page: 246 249 246; /* faint mint backdrop */
   --surface: 250 250 247; /* warm white */
   --raised: 255 255 255; /* cards */
   --ink: 40 48 40; /* deep sage-charcoal */
@@ -121,7 +121,7 @@ textarea,
 .silicone,
 .silicone-quiet,
 .silicone-primary,
-.silicone-danger,
+.silicone-peach,
 .silicone-frost {
   --neo-light: rgb(255 255 255 / 0.9);
   --neo-dark: rgb(var(--shadow) / 0.16);
@@ -148,7 +148,7 @@ textarea,
 .silicone:not(:disabled):hover,
 .silicone-quiet:not(:disabled):hover,
 .silicone-primary:not(:disabled):hover,
-.silicone-danger:not(:disabled):hover,
+.silicone-peach:not(:disabled):hover,
 .silicone-frost:not(:disabled):hover {
   box-shadow: var(--neo-raise-hover);
 }
@@ -156,7 +156,7 @@ textarea,
 .silicone:not(:disabled):active,
 .silicone-quiet:not(:disabled):active,
 .silicone-primary:not(:disabled):active,
-.silicone-danger:not(:disabled):active,
+.silicone-peach:not(:disabled):active,
 .silicone-frost:not(:disabled):active {
   box-shadow: var(--neo-sink);
   transform: scale(0.98);
@@ -196,8 +196,9 @@ textarea,
   background-image: linear-gradient(145deg, #3f6b4c 0%, #57895f 100%);
 }
 
-/* Danger — peach, softly convex */
-.silicone-danger {
+/* Peach — softly convex. Carries destructive actions as well as warmth;
+   `Button`/`IconButton` map their `danger` tone here. */
+.silicone-peach {
   --neo-light: rgb(255 255 255 / 0.32);
   --neo-dark: rgb(115 65 39 / 0.5);
 
@@ -206,11 +207,11 @@ textarea,
   color: #fff;
 }
 
-.silicone-danger:not(:disabled):hover {
+.silicone-peach:not(:disabled):hover {
   background-image: linear-gradient(145deg, #eaa277 0%, #c1703c 100%);
 }
 
-.silicone-danger:not(:disabled):active {
+.silicone-peach:not(:disabled):active {
   background-image: linear-gradient(145deg, #c97a45 0%, #e39a68 100%);
 }
 
@@ -278,7 +279,7 @@ textarea,
   --neo-dark: rgb(0 0 0 / 0.6);
 }
 
-.dark .silicone-danger {
+.dark .silicone-peach {
   --neo-light: rgb(255 255 255 / 0.16);
   --neo-dark: rgb(0 0 0 / 0.6);
 }
@@ -292,7 +293,7 @@ textarea,
 .silicone:disabled,
 .silicone-quiet:disabled,
 .silicone-primary:disabled,
-.silicone-danger:disabled,
+.silicone-peach:disabled,
 .silicone-frost:disabled,
 .silicone-swatch:disabled {
   box-shadow: none;
@@ -378,7 +379,6 @@ textarea,
   height: 100%;
   border: 0;
 }
-/* A small caption so the previewed size is always visible. */
 .phone-frame-caption {
   position: absolute;
   top: 0;
@@ -392,8 +392,6 @@ textarea,
   font-size: 10px;
   color: #fff;
 }
-/* The framed app hides its scrollbar so the viewport width is exactly the
-   phone width instead of phone width minus a desktop scrollbar. */
 .phone-embed {
   scrollbar-width: none;
 }

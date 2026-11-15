@@ -34,13 +34,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="safe-shell mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
-        <div className="w-full rounded-calm border border-line bg-raised p-6 shadow-calm">
-          <h1 className="font-display text-xl font-semibold text-ink">Something went sideways</h1>
+        <div className="w-full rounded-calm-lg bg-raised p-6 shadow-calm-lg ring-1 ring-inset ring-line">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
+            Something went sideways
+          </h1>
           <p className="mt-2 text-sm text-muted">
             Bloom hit an unexpected error. Your data is safe on this device — reloading usually
             fixes it.
           </p>
-          <pre className="mt-4 max-h-32 overflow-auto rounded-calm-sm bg-surface p-3 text-left text-xs text-muted">
+          <pre className="mt-4 max-h-32 overflow-auto rounded-calm-sm bg-surface p-3 text-left font-mono text-xs leading-relaxed text-muted">
             {error.message}
           </pre>
           <button

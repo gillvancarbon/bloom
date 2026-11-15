@@ -10,6 +10,8 @@ import {
   type QuickSuggestion,
 } from '../lib/quickAdd'
 import { dueState, recurrenceLabel } from '../lib/todo'
+import { Button } from './ui/Button'
+import { FIELD_INPUT_ICON } from './ui/Field'
 import type { TodoInput } from '../types'
 
 /** A few example sentences for the primer, taken from the guide's last section. */
@@ -33,7 +35,9 @@ function QuickChip({
       type="button"
       onClick={onClick}
       title={title}
-      className={`rounded-full px-2 py-0.5 font-medium transition-opacity duration-calm hover:opacity-80 ${
+      // `py-1`, not `py-0.5`: these are real tap targets, so they clear the
+      // 24px minimum rather than sitting at ~20px.
+      className={`min-h-[1.5rem] rounded-full px-2 py-1 font-medium transition-opacity duration-calm hover:opacity-80 ${
         suggested
           ? 'border border-dashed border-sage-500 text-sage-700 dark:border-sage-400 dark:text-sage-200'
           : 'bg-mint-100 text-sage-700 dark:bg-mint-900/50 dark:text-mint-100'
@@ -56,7 +60,7 @@ function QuickAddHelpPanel({
     <div
       role="region"
       aria-label="Quick add guide"
-      className="mt-2 rounded-calm border border-line bg-raised p-3.5 shadow-calm"
+      className="mt-2 rounded-calm border border-line bg-raised p-3.5 shadow-calm-lg"
     >
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -67,7 +71,7 @@ function QuickAddHelpPanel({
           type="button"
           onClick={onClose}
           aria-label="Close quick add guide"
-          className="silicone flex h-7 w-7 items-center justify-center rounded-full text-muted hover:text-ink"
+          className="silicone flex h-8 w-8 items-center justify-center rounded-full text-muted hover:text-ink"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -79,7 +83,7 @@ function QuickAddHelpPanel({
       <div className="space-y-3">
         {QUICK_ADD_HELP.map((section) => (
           <section key={section.title}>
-            <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
               {section.title}
             </h3>
             <div className="flex flex-wrap gap-1.5">
@@ -203,19 +207,17 @@ export function QuickAddBar({ now, onAdd, guidance = true }: QuickAddBarProps) {
             maxLength={200}
             aria-label="Quick add a task"
             aria-describedby="quick-add-guidance"
-            className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-3 text-sm
-                       text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
-                       focus:ring-2 focus:ring-sage-400/30"
+            className={FIELD_INPUT_ICON}
           />
         </div>
-        <button
+        <Button
           type="submit"
+          variant="primary"
           disabled={busy || !text.trim() || command !== null}
-          className="silicone-primary shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold
-                     disabled:opacity-50"
+          className="shrink-0 py-2.5"
         >
           Add
-        </button>
+        </Button>
       </div>
 
       {/*

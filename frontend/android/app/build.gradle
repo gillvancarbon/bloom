@@ -13,8 +13,8 @@ android {
         applicationId "com.bloom.habittracker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "1.5.3"
+        versionCode 13
+        versionName "1.5.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -38,6 +38,14 @@ android {
         }
     }
     buildTypes {
+        // Side-by-side review build: a separate package (`…habitracker.dev`) so it
+        // installs alongside the released Bloom without touching its data, and a
+        // distinct label so the two are tellable apart on the home screen.
+        debug {
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+            resValue "string", "app_name", "Bloom Dev"
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

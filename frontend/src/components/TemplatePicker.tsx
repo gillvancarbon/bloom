@@ -9,6 +9,7 @@ import {
   type HabitTemplate,
 } from '../lib/templates'
 import { scheduleLabel } from '../lib/schedule'
+import { Button } from './ui/Button'
 import type { HabitInput } from '../types'
 
 interface TemplatePickerProps {
@@ -55,10 +56,13 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
     if (!templates.length) return null
     return (
       <div className="mt-4 first:mt-0">
-        <h3 id={id} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <h3
+          id={id}
+          className="mb-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted"
+        >
           {label}
         </h3>
-        <ul aria-labelledby={id} className="space-y-2">
+        <ul aria-labelledby={id}>
           {templates.map((template) => {
             const on = selected.has(template.name)
             return (
@@ -67,14 +71,12 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
                   type="button"
                   onClick={() => toggle(template.name)}
                   aria-pressed={on}
-                  className={`flex w-full items-center gap-3 rounded-calm-sm border px-3 py-3 text-left transition-all duration-calm ease-calm ${
-                    on
-                      ? 'border-sage-400 bg-mint-100 dark:bg-mint-900/40'
-                      : 'border-line bg-surface hover:border-sage-300'
+                  className={`flex w-full items-center gap-3 border-b border-line/70 px-1 py-3 text-left transition-colors duration-calm ease-calm last:border-b-0 ${
+                    on ? 'bg-mint-100/60 dark:bg-mint-900/25' : 'hover:bg-surface'
                   }`}
                 >
                   <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-calm ease-calm ${
                       on ? 'border-sage-500 bg-sage-500 text-white' : 'border-line text-transparent'
                     }`}
                   >
@@ -110,14 +112,14 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
           aria-hidden
         />
         <motion.div
-          initial={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.16, ease: 'easeOut' }}
+          transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="templates-title"
           aria-describedby="templates-guidance"
-          className="relative z-10 max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-calm bg-raised p-5 shadow-calm-lg sm:rounded-calm sm:p-6"
+          className="relative z-10 max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-calm-lg bg-raised p-5 shadow-calm-lg sm:rounded-calm-lg sm:p-6"
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
@@ -136,7 +138,7 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
               type="button"
               onClick={onClose}
               aria-label="Close templates"
-              className="silicone flex h-9 w-9 items-center justify-center rounded-full text-muted hover:text-ink"
+              className="silicone -mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:text-ink"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
@@ -145,7 +147,7 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
           {renderGroup('templates-suggested', 'Good first habits', suggested)}
           {renderGroup('templates-others', 'More ideas', others)}
 
-          <div className="sticky bottom-0 -mx-5 -mb-5 mt-5 flex flex-col gap-2 rounded-b-calm border-t border-line bg-raised px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
+          <div className="sticky bottom-0 -mx-5 -mb-5 mt-5 flex flex-col gap-2 rounded-b-calm-lg border-t border-line bg-raised px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
             {tooMany && (
               <p
                 id="templates-hint"
@@ -158,24 +160,19 @@ export function TemplatePicker({ onClose, onCreate }: TemplatePickerProps) {
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted">{selected.size} selected</span>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
-                >
+                <Button variant="ghost" className="text-muted hover:text-ink" onClick={onClose}>
                   Skip
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={add}
                   disabled={saving || selected.size === 0}
                   aria-describedby={tooMany ? 'templates-hint' : undefined}
-                  className="silicone-primary rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-60"
                 >
                   {saving
                     ? 'Adding…'
                     : `Add ${selected.size || ''} habit${selected.size === 1 ? '' : 's'} and start`}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

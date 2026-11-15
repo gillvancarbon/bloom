@@ -45,8 +45,8 @@ export function ToastHost() {
               transition={{ type: 'spring', stiffness: 320, damping: 30 }}
               role="status"
               aria-live="polite"
-              className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-calm border
-                         border-line bg-raised px-4 py-3 shadow-calm-lg"
+              className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-calm-lg
+                         bg-raised px-4 py-3 shadow-calm-lg ring-1 ring-inset ring-line"
             >
               {isError ? (
                 <AlertTriangle

@@ -252,26 +252,30 @@ const GROUPS: GuideGroup[] = [
 
 function StepRow({ number, step }: { number: number; step: Step }) {
   return (
-    <li className="flex gap-3 rounded-calm-sm border border-line bg-surface p-3.5">
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mint-100 text-sage-600 dark:bg-mint-900/50 dark:text-sage-300">
-        <step.Icon className="h-4 w-4" aria-hidden />
-        <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-sage-500 text-[10px] font-bold text-white">
-          {number}
-        </span>
+    <li className="flex gap-3.5 border-b border-line/70 py-4 last:border-b-0">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mint-100 text-[11px] font-semibold tabular-nums text-sage-700 dark:bg-mint-900/50 dark:text-sage-200">
+        {number}
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">{step.title}</p>
-        <p className="mt-0.5 text-sm leading-relaxed text-muted">{step.body}</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <step.Icon className="h-3.5 w-3.5 text-sage-500 dark:text-sage-300" aria-hidden />
+          {step.title}
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-muted">{step.body}</p>
       </div>
     </li>
   )
 }
 
+/**
+ * A chapter of the guide. An editorial section with a rule above rather than a
+ * floating card, so a long manual reads as one continuous document.
+ */
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-calm border border-line bg-raised p-4 shadow-calm sm:p-5">
-      <h2 className="mb-3 font-display text-sm font-semibold text-ink">{title}</h2>
-      <ol className="space-y-2">{children}</ol>
+    <section className="border-t border-line/70 pt-4">
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{title}</h2>
+      <ol className="mt-1">{children}</ol>
     </section>
   )
 }
@@ -314,8 +318,8 @@ export function TutorialView({ onClose }: TutorialViewProps) {
               type="button"
               onClick={onClose}
               aria-label="Close guide"
-              className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
-                         hover:text-sage-500 dark:hover:text-sage-300"
+              className="silicone -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted
+                         hover:text-ink dark:hover:text-ink"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>

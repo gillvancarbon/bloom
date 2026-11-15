@@ -12,6 +12,8 @@ import type {
 } from '../types'
 import { TODO_CATEGORIES, TODO_IMPORTANCE, TODO_RECURRENCE } from '../lib/todo'
 import { toISODate } from '../lib/streak'
+import { Button } from './ui/Button'
+import { FIELD_HINT, FIELD_INPUT, FIELD_INPUT_ICON, FIELD_LABEL } from './ui/Field'
 
 function newSubtask(title = ''): Subtask {
   const id =
@@ -108,10 +110,10 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
         />
         <motion.form
           onSubmit={handleSubmit}
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.16, ease: 'easeOut' }}
-          className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-calm bg-raised p-6 shadow-calm-lg"
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+          className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-calm-lg bg-raised p-6 shadow-calm-lg"
           role="dialog"
           aria-modal="true"
           aria-labelledby="todo-form-title"
@@ -131,14 +133,14 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="silicone flex h-9 w-9 items-center justify-center rounded-full text-muted
+              className="silicone -mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted
                          hover:text-ink dark:hover:text-ink"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
 
-          <label htmlFor="todo-title" className="mb-2 block text-sm font-medium text-ink">
+          <label htmlFor="todo-title" className={FIELD_LABEL}>
             Task
           </label>
           <input
@@ -151,10 +153,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
             }}
             placeholder="e.g. Finish the reading response"
             maxLength={120}
-            className="w-full rounded-calm-sm border border-line bg-surface px-4 py-2.5
-                       text-ink placeholder:text-muted/70
-                       transition-all duration-calm ease-calm
-                       focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+            className={FIELD_INPUT}
           />
 
           <div className="mt-4">
@@ -176,7 +175,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                 {showMore ? 'Hide options' : 'More options'}
               </span>
             </button>
-            <p id="todo-more-options-help" className="mt-1.5 text-xs text-muted">
+            <p id="todo-more-options-help" className={FIELD_HINT}>
               Type, priority, repeat, note and steps.
             </p>
           </div>
@@ -184,8 +183,8 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
           {showMore && (
             <div id="todo-more-options">
               <div className="mt-4">
-                <span className="mb-2 block text-sm font-medium text-ink">Type</span>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <span className={FIELD_LABEL}>Type</span>
+                <div className="grid grid-cols-2 gap-2">
                   {TODO_CATEGORIES.map((option) => {
                     const Icon = option.icon
                     const selected = category === option.id
@@ -195,15 +194,15 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                         type="button"
                         onClick={() => setCategory(option.id)}
                         aria-pressed={selected}
-                        className={`flex items-center gap-2 rounded-calm-sm border px-3 py-2 text-sm font-medium
-                                transition-all duration-calm ease-calm active:scale-[0.98]
+                        className={`flex min-h-[44px] items-center gap-2 rounded-calm-sm px-3 py-2 text-sm font-medium
+                                transition-colors duration-calm ease-calm
                                 ${
                                   selected
-                                    ? `${option.chip} border-transparent ring-2 ring-sage-400/40`
-                                    : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
+                                    ? `${option.chip} ring-2 ring-sage-400/40`
+                                    : 'silicone text-muted hover:text-ink'
                                 }`}
                       >
-                        <Icon className="h-4 w-4" aria-hidden />
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
                         {option.label}
                       </button>
                     )
@@ -212,7 +211,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
               </div>
 
               <div className="mt-4">
-                <span className="mb-2 block text-sm font-medium text-ink">Priority</span>
+                <span className={FIELD_LABEL}>Priority</span>
                 <div className="grid grid-cols-3 gap-2">
                   {TODO_IMPORTANCE.map((option) => {
                     const Icon = option.icon
@@ -223,15 +222,15 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                         type="button"
                         onClick={() => setImportance(option.id)}
                         aria-pressed={selected}
-                        className={`flex items-center justify-center gap-1.5 rounded-calm-sm border px-3 py-2 text-sm font-medium
-                                transition-all duration-calm ease-calm active:scale-[0.98]
+                        className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-calm-sm px-3 py-2 text-sm font-medium
+                                transition-colors duration-calm ease-calm
                                 ${
                                   selected
-                                    ? `${option.chip} border-transparent ring-2 ring-sage-400/40`
-                                    : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
+                                    ? `${option.chip} ring-2 ring-sage-400/40`
+                                    : 'silicone text-muted hover:text-ink'
                                 }`}
                       >
-                        <Icon className="h-4 w-4" aria-hidden />
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
                         {option.label}
                       </button>
                     )
@@ -240,11 +239,11 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
               </div>
 
               <div className="mt-4">
-                <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+                <span className={`${FIELD_LABEL} flex items-center gap-1.5`}>
                   <Repeat className="h-4 w-4 text-muted" aria-hidden />
                   Repeat
                 </span>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {TODO_RECURRENCE.map((option) => {
                     const selected = recurrence === option.id
                     return (
@@ -257,12 +256,12 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                           if (option.id !== 'none' && !dueDate) setDueDate(toISODate(new Date()))
                         }}
                         aria-pressed={selected}
-                        className={`rounded-calm-sm border px-2 py-2 text-sm font-medium
-                                transition-all duration-calm ease-calm active:scale-[0.98]
+                        className={`min-h-[44px] rounded-calm-sm px-2 py-2 text-sm font-medium
+                                transition-colors duration-calm ease-calm
                                 ${
                                   selected
-                                    ? 'border-transparent bg-sage-100 text-sage-700 ring-2 ring-sage-400/40 dark:bg-sage-900/50 dark:text-sage-200'
-                                    : 'border-line bg-surface text-muted hover:border-sage-300 hover:text-ink'
+                                    ? 'bg-sage-100 text-sage-700 ring-2 ring-sage-400/40 dark:bg-sage-900/50 dark:text-sage-200'
+                                    : 'silicone text-muted hover:text-ink'
                                 }`}
                       >
                         {option.label}
@@ -272,12 +271,12 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                 </div>
                 {recurrence !== 'none' && (
                   <>
-                    <p className="mt-1.5 text-xs text-muted">
+                    <p className={FIELD_HINT}>
                       Completing it moves it to the next{' '}
                       {recurrence === 'daily' ? 'day' : recurrence === 'weekly' ? 'week' : 'month'}{' '}
                       instead of leaving it done.
                     </p>
-                    <p className="mt-1.5 text-xs text-muted">
+                    <p className={FIELD_HINT}>
                       For something you want to build a streak around, a Habit may fit better.
                     </p>
                   </>
@@ -287,7 +286,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
           )}
 
           <div className="mt-4">
-            <label htmlFor="todo-due" className="mb-2 block text-sm font-medium text-ink">
+            <label htmlFor="todo-due" className={FIELD_LABEL}>
               Due date <span className="font-normal text-muted">(optional)</span>
             </label>
             <div className="flex items-center gap-2">
@@ -305,23 +304,20 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                     setDueDate(value)
                     if (!value) setDueTime('')
                   }}
-                  className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
-                             text-ink transition-all duration-calm ease-calm
-                             focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                  className={`${FIELD_INPUT_ICON} tabular-nums`}
                 />
               </div>
               {dueDate && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  className="hover:text-ink"
                   onClick={() => {
                     setDueDate('')
                     setDueTime('')
                   }}
-                  className="silicone-quiet rounded-full px-3 py-2 text-sm font-medium
-                             hover:text-ink dark:hover:text-ink"
                 >
                   Clear
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -336,7 +332,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                 key={chip.label}
                 type="button"
                 onClick={() => setDueDate(toISODate(addDays(new Date(), chip.days)))}
-                className="silicone-quiet rounded-full px-3 py-1 text-xs font-medium text-muted hover:text-ink"
+                className="silicone-quiet rounded-full px-3 py-1.5 text-xs font-medium text-muted hover:text-ink"
               >
                 {chip.label}
               </button>
@@ -345,7 +341,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
 
           {dueDate && (
             <div className="mt-4">
-              <label htmlFor="todo-time" className="mb-2 block text-sm font-medium text-ink">
+              <label htmlFor="todo-time" className={FIELD_LABEL}>
                 Due time <span className="font-normal text-muted">(optional)</span>
               </label>
               <div className="flex items-center gap-2">
@@ -359,23 +355,16 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                     type="time"
                     value={dueTime}
                     onChange={(e) => setDueTime(e.target.value)}
-                    className="w-full rounded-calm-sm border border-line bg-surface py-2.5 pl-9 pr-4
-                               text-ink transition-all duration-calm ease-calm
-                               focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                    className={`${FIELD_INPUT_ICON} tabular-nums`}
                   />
                 </div>
                 {dueTime && (
-                  <button
-                    type="button"
-                    onClick={() => setDueTime('')}
-                    className="silicone-quiet rounded-full px-3 py-2 text-sm font-medium
-                               hover:text-ink dark:hover:text-ink"
-                  >
+                  <Button variant="ghost" className="hover:text-ink" onClick={() => setDueTime('')}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </div>
-              <p className="mt-1.5 text-xs text-muted">
+              <p className={FIELD_HINT}>
                 {dueTime
                   ? 'The task becomes overdue after this time.'
                   : 'Leave empty to make it overdue at the end of the day.'}
@@ -386,7 +375,7 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
           {showMore && (
             <div id="todo-more-options-note">
               <div className="mt-4">
-                <label htmlFor="todo-note" className="mb-2 block text-sm font-medium text-ink">
+                <label htmlFor="todo-note" className={FIELD_LABEL}>
                   Note <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <textarea
@@ -396,15 +385,12 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                   placeholder="Anything worth remembering?"
                   maxLength={280}
                   rows={2}
-                  className="w-full resize-none rounded-calm-sm border border-line bg-surface px-4 py-2.5
-                         text-ink placeholder:text-muted/70
-                         transition-all duration-calm ease-calm
-                         focus:border-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-400/30"
+                  className={`${FIELD_INPUT} resize-none`}
                 />
               </div>
 
               <div className="mt-4">
-                <span className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink">
+                <span className={`${FIELD_LABEL} flex items-center gap-1.5`}>
                   <ListChecks className="h-4 w-4 text-muted" aria-hidden />
                   Steps <span className="font-normal text-muted">(optional)</span>
                 </span>
@@ -424,15 +410,13 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                           placeholder={`Step ${index + 1}`}
                           maxLength={120}
                           aria-label={`Step ${index + 1}`}
-                          className="w-full rounded-calm-sm border border-line bg-surface px-3 py-2 text-sm
-                                 text-ink placeholder:text-muted/70 focus:border-sage-400 focus:outline-none
-                                 focus:ring-2 focus:ring-sage-400/30"
+                          className={FIELD_INPUT}
                         />
                         <button
                           type="button"
                           onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
                           aria-label={`Remove step ${index + 1}`}
-                          className="silicone-quiet flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                          className="silicone flex h-10 w-10 shrink-0 items-center justify-center rounded-full
                                  text-muted hover:text-peach-600 dark:hover:text-peach-300"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden />
@@ -441,42 +425,34 @@ export function TodoForm({ mode, todo, onClose, onSubmit }: TodoFormProps) {
                     ))}
                   </ul>
                 )}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  icon={Plus}
+                  className="text-muted hover:text-ink"
                   onClick={() => setSubtasks((prev) => [...prev, newSubtask()])}
-                  className="silicone-quiet inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium
-                         text-muted hover:text-ink"
                 >
-                  <Plus className="h-4 w-4" aria-hidden />
                   Add a step
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {error && (
-            <p className="mt-4 rounded-calm-sm bg-peach-100 px-3 py-2 text-sm text-peach-700 dark:bg-peach-900/40 dark:text-peach-200">
+            <p
+              role="alert"
+              className="mt-5 border-l-2 border-peach-400 py-0.5 pl-3 text-sm text-peach-700 dark:text-peach-300"
+            >
               {error}
             </p>
           )}
 
-          <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex justify-end gap-2 rounded-b-calm border-t border-line bg-raised px-6 py-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="silicone-quiet rounded-full px-4 py-2 text-sm font-medium
-                         hover:text-ink dark:hover:text-ink"
-            >
+          <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex justify-end gap-2 rounded-b-calm-lg border-t border-line bg-raised px-6 py-4">
+            <Button variant="ghost" className="hover:text-ink" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="silicone-primary rounded-full px-5 py-2 text-sm font-semibold
-                         disabled:opacity-60"
-            >
+            </Button>
+            <Button type="submit" variant="primary" disabled={saving}>
               {saving ? 'Saving…' : mode === 'create' ? 'Add task' : 'Save changes'}
-            </button>
+            </Button>
           </div>
         </motion.form>
       </motion.div>
