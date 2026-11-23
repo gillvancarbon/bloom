@@ -7,6 +7,13 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+  android: {
+    // Work around a Capacitor Android bridge bug that can leave a native
+    // write committed while its JS promise stays unsettled — the form sits on
+    // "Saving…" although the habit or task was created. The legacy bridge
+    // avoids the affected reply-proxy path. See ionic-team/capacitor#8616.
+    useLegacyBridge: true,
+  },
   plugins: {
     LocalNotifications: {
       // Monochrome status-bar icon, tinted by the system.

@@ -50,6 +50,8 @@ test('habits: create a habit and check it off', async ({ page }) => {
   await form.getByLabel('Habit name').fill('Read for 10 minutes')
   await form.getByRole('button', { name: 'Create habit' }).click()
 
+  // The dialog closes once the save lands — it must never sit on "Saving…".
+  await expect(form).toBeHidden()
   await expect(page.getByText('Read for 10 minutes')).toBeVisible()
 
   await page.getByRole('button', { name: 'Mark Read for 10 minutes complete today' }).click()
@@ -72,6 +74,21 @@ test('quick add: a sentence is previewed and added', async ({ page }) => {
 
   await page.getByRole('tab', { name: /^All/ }).click()
   await expect(page.getByRole('heading', { name: 'call mum' })).toBeVisible()
+})
+
+test('tasks: saving a new task closes the dialog', async ({ page }) => {
+  await seedUser(page)
+  await openTodos(page)
+
+  await page.getByRole('button', { name: 'Add task' }).click()
+  const form = page.getByRole('dialog', { name: 'New task' })
+  await form.getByLabel('Task').fill('Pay rent')
+  await form.getByRole('button', { name: 'Add task' }).click()
+
+  // The dialog closes once the save lands — it must never sit on "Saving…".
+  await expect(form).toBeHidden()
+  await page.getByRole('tab', { name: /^All/ }).click()
+  await expect(page.getByRole('heading', { name: 'Pay rent' })).toBeVisible()
 })
 
 test('quick add: /help opens the guide and an example fills the line', async ({ page }) => {
