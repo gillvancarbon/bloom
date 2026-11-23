@@ -134,7 +134,7 @@ must accept the [Terms of use](#terms-of-use) before the app opens.
 
 ## Run it
 
-The simplest path — build and launch on a single port:
+The most simple path — build and launch on a single port:
 
 ```bash
 ./run.sh
