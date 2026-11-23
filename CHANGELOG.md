@@ -4,6 +4,18 @@ All notable changes to Bloom are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] — 2026-11-23
+
+### Fixed
+
+- **Saving a habit or task no longer gets stuck** — the record was created, but
+  the form stayed on "Saving…" and the app had to be force-quit to get back to
+  the home screen. The write landed on the device while the JavaScript promise
+  waiting on it never settled, so the form never closed and the on-device store
+  queue stayed wedged. Android plugin calls are now answered over the legacy
+  Capacitor bridge, which avoids the modern bridge's reply-proxy path where a
+  reply can be dropped.
+
 ## [1.5.4] — 2026-11-15
 
 A calmer, cleaner pass over the whole interface: one set of shared controls, less
